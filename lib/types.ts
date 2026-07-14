@@ -36,3 +36,11 @@ export type DashboardData = {
   reservations: SlotReservation[];
   requests: DashboardRequest[];
 };
+
+export type PublicPanelData = {
+  weekStart: string;
+  today: string;
+  days: string[];
+  slotHours: number[];
+  reservations: SlotReservation[];
+};

@@ -66,6 +66,9 @@ export function StageSchedulerApp({ data }: Props) {
   const router = useRouter();
   const [feedback, setFeedback] = useState<string | null>(null);
   const [whatsAppPhone, setWhatsAppPhone] = useState(data.currentUser.whatsappPhone ?? "");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
   const [configValue, setConfigValue] = useState(
@@ -230,6 +233,29 @@ function replaceMinistrySlot(slotKey: string) {
     });
   }
 
+  function handlePasswordSave() {
+    startTransition(async () => {
+      try {
+        setFeedback(null);
+        await sendJson(
+          "/api/profile/password",
+          {
+            currentPassword,
+            newPassword,
+            confirmPassword,
+          },
+          "PATCH",
+        );
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+        setFeedback("Senha atualizada.");
+      } catch (error) {
+        setFeedback(error instanceof Error ? error.message : "Falha ao atualizar senha.");
+      }
+    });
+  }
+
   function openApprovalDialog(request: DashboardData["requests"][number]) {
     setReviewNotes((current) => ({
       ...current,
@@ -352,7 +378,54 @@ function replaceMinistrySlot(slotKey: string) {
           ) : null}
         </div>
 
-        {isAdmin && feedback ? (
+        <div className="mt-4 rounded-[1.4rem] border border-[var(--line)] bg-[var(--panel)] p-4">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Field label="Senha atual">
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(event) => setCurrentPassword(event.target.value)}
+                placeholder="Digite a senha atual"
+                className="input-base"
+              />
+            </Field>
+            <Field label="Nova senha">
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+                placeholder="Digite a nova senha"
+                className="input-base"
+              />
+            </Field>
+            <Field label="Confirmar senha">
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                placeholder="Repita a nova senha"
+                className="input-base"
+              />
+            </Field>
+          </div>
+          <div className="mt-3 flex justify-end">
+            <button
+              type="button"
+              disabled={
+                isPending ||
+                !currentPassword.trim() ||
+                !newPassword.trim() ||
+                !confirmPassword.trim()
+              }
+              onClick={handlePasswordSave}
+              className="button-primary"
+            >
+              {isPending ? "Salvando..." : "Alterar senha"}
+            </button>
+          </div>
+        </div>
+
+        {feedback ? (
           <p className="mt-4 rounded-[1.25rem] bg-[var(--panel-strong)] px-4 py-3 text-sm text-[var(--ink)]">
             {feedback}
           </p>

@@ -34,6 +34,20 @@ export const updateProfileSchema = z.object({
     .max(20, "WhatsApp muito longo."),
 });
 
+export const updatePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Informe a senha atual."),
+    newPassword: z
+      .string()
+      .min(4, "A nova senha deve ter ao menos 4 caracteres.")
+      .max(80, "A nova senha é muito longa."),
+    confirmPassword: z.string().min(1, "Confirme a nova senha."),
+  })
+  .refine((input) => input.newPassword === input.confirmPassword, {
+    message: "A confirmação da senha não confere.",
+    path: ["confirmPassword"],
+  });
+
 export const availabilityQuerySchema = z.object({
   weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });

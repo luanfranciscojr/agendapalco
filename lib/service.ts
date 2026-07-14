@@ -12,6 +12,7 @@ import {
   SLOT_HOURS,
 } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
+import { hashPassword, verifyPassword } from "@/lib/password";
 import {
   ACTIVE_STATUSES,
   canCreateWeeklyRequest,
@@ -21,7 +22,7 @@ import {
   validateWeekStart,
 } from "@/lib/rules";
 import { dateKeyToUtcDate, getCurrentWeekContext, parseSlotKey, buildSlotKey } from "@/lib/time";
-import type { DashboardData } from "@/lib/types";
+import type { DashboardData, PublicPanelData } from "@/lib/types";
 import { validateHour } from "@/lib/validators";
 import { parsePublicReviewToken } from "@/lib/public-review";
 import { sendWhatsAppTemplate } from "@/lib/whatsapp";
@@ -391,6 +392,43 @@ export async function getDashboardData(currentUser: AuthUser): Promise<Dashboard
       name: ministry.name,
     })),
     requests: requests.map(mapRequest),
+    reservations: reservedSlots.map((slot) => ({
+      slotKey: buildSlotKey(slot.slotDate.toISOString().slice(0, 10), slot.hour),
+      dateKey: slot.slotDate.toISOString().slice(0, 10),
+      hour: slot.hour,
+      requestId: slot.bookingRequestId,
+      ministryId: slot.bookingRequest.ministryId,
+      ministryName: slot.bookingRequest.ministry.name,
+      requestedByName: slot.bookingRequest.requestedByName,
+      status: slot.bookingRequest.status,
+    })),
+  };
+}
+
+export async function getPublicPanelData(): Promise<PublicPanelData> {
+  const { weekStart, today, days } = getCurrentWeekContext();
+  const reservedSlots = await prisma.reservedSlot.findMany({
+    where: {
+      slotDate: {
+        gte: dateKeyToUtcDate(days[0]),
+        lte: dateKeyToUtcDate(days[days.length - 1]),
+      },
+    },
+    include: {
+      bookingRequest: {
+        include: {
+          ministry: true,
+        },
+      },
+    },
+    orderBy: [{ slotDate: "asc" }, { hour: "asc" }],
+  });
+
+  return {
+    weekStart,
+    today,
+    days,
+    slotHours: SLOT_HOURS,
     reservations: reservedSlots.map((slot) => ({
       slotKey: buildSlotKey(slot.slotDate.toISOString().slice(0, 10), slot.hour),
       dateKey: slot.slotDate.toISOString().slice(0, 10),
@@ -796,6 +834,40 @@ export async function updateOwnProfile(
     ministryId: updated.ministryId,
     ministryName: updated.ministry?.name ?? null,
   } satisfies AuthUser;
+}
+
+export async function updateOwnPassword(
+  currentUser: AuthUser,
+  input: { currentPassword: string; newPassword: string },
+) {
+  const user = await prisma.user.findUnique({
+    where: { id: currentUser.id },
+    select: {
+      id: true,
+      passwordHash: true,
+    },
+  });
+
+  if (!user) {
+    throw new AppError("Usuário não encontrado.", 404);
+  }
+
+  if (!verifyPassword(input.currentPassword, user.passwordHash)) {
+    throw new AppError("Senha atual incorreta.", 409);
+  }
+
+  if (input.currentPassword === input.newPassword) {
+    throw new AppError("A nova senha deve ser diferente da senha atual.", 409);
+  }
+
+  await prisma.user.update({
+    where: { id: currentUser.id },
+    data: {
+      passwordHash: hashPassword(input.newPassword),
+    },
+  });
+
+  return { success: true as const };
 }
 
 export async function cancelBookingRequest(currentUser: AuthUser, requestId: string) {

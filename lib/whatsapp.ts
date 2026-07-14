@@ -22,6 +22,14 @@ type WhatsAppMessageInput = {
   requestId?: string;
 };
 
+function getRecipientLabel(input: WhatsAppMessageInput) {
+  if (input.ministryName) {
+    return `Ministério de ${input.ministryName}`;
+  }
+
+  return input.recipientName;
+}
+
 function normalizePhone(phone: string) {
   return phone.replace(/\D/g, "");
 }
@@ -64,7 +72,7 @@ function getTemplateParams(
   }
 
   return [
-    input.recipientName,
+    getRecipientLabel(input),
     formatDatePtBr(input.dateKey),
     hourLabel(input.hour),
   ];

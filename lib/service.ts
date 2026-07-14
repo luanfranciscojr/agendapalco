@@ -293,12 +293,14 @@ async function getAdminNotificationTargets(
 function buildApprovedSlotNotifications(
   targets: NotificationTarget[],
   slotKeys: string[],
+  ministryName?: string,
 ) {
   return slotKeys.flatMap((slotKey) => {
     const { dateKey, hour } = parseSlotKey(slotKey);
 
     return targets.map((target) => ({
       ...target,
+      ministryName,
       dateKey,
       hour,
     }));
@@ -580,6 +582,7 @@ export async function createBookingRequest(currentUser: AuthUser, input: CreateB
           bookingRequest.reservedSlots.map((slot) =>
             buildSlotKey(slot.slotDate.toISOString().slice(0, 10), slot.hour),
           ),
+          bookingRequest.ministry.name,
         );
       }
 
@@ -722,6 +725,7 @@ export async function reviewBookingRequest(requestId: string, input: ReviewBooki
         updated.reservedSlots.map((slot) =>
           buildSlotKey(slot.slotDate.toISOString().slice(0, 10), slot.hour),
         ),
+        updated.ministry.name,
       );
     }
 
@@ -732,6 +736,7 @@ export async function reviewBookingRequest(requestId: string, input: ReviewBooki
         bookingRequest.requestedSlots.map((slot) =>
           buildSlotKey(slot.slotDate.toISOString().slice(0, 10), slot.hour),
         ),
+        updated.ministry.name,
       );
     }
 
@@ -926,6 +931,7 @@ export async function cancelBookingRequest(currentUser: AuthUser, requestId: str
         bookingRequest.requestedSlots.map((slot) =>
           buildSlotKey(slot.slotDate.toISOString().slice(0, 10), slot.hour),
         ),
+        updated.ministry.name,
       );
     }
 

@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { clsx } from "clsx";
 import { toPng } from "html-to-image";
 
+import { BLOCKED_DIRECT_BOOKING_ID } from "@/lib/constants";
 import {
   formatDatePtBr,
   formatDateFullPtBr,
@@ -62,6 +63,18 @@ function formatWhatsappInput(value: string) {
   return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
 }
 
+function getReservationLabel(reservation: DashboardData["reservations"][number]) {
+  return reservation.isBlocked ? "Ocupado" : reservation.ministryName;
+}
+
+function getReservationStatusLabel(reservation: DashboardData["reservations"][number]) {
+  if (reservation.isBlocked) {
+    return "Bloqueado";
+  }
+
+  return reservation.status === "pending" ? "Pendente" : "Confirmado";
+}
+
 export function StageSchedulerApp({ data }: Props) {
   const router = useRouter();
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -86,6 +99,7 @@ export function StageSchedulerApp({ data }: Props) {
   const [isExportingImage, setIsExportingImage] = useState(false);
   const [isPending, startTransition] = useTransition();
   const weeklyCalendarRef = useRef<HTMLDivElement | null>(null);
+  const weekImageRef = useRef<HTMLDivElement | null>(null);
 
   const currentUser = data.currentUser;
   const isAdmin = currentUser.role === "admin";
@@ -148,11 +162,11 @@ function replaceMinistrySlot(slotKey: string) {
 }
 
   async function buildWeekImageFile() {
-    if (!weeklyCalendarRef.current) {
+    if (!weekImageRef.current) {
       throw new Error("Não foi possível localizar o calendário para exportar.");
     }
 
-    const dataUrl = await toPng(weeklyCalendarRef.current, {
+    const dataUrl = await toPng(weekImageRef.current, {
       cacheBust: true,
       pixelRatio: 2,
       backgroundColor: "#f7f1e7",
@@ -670,6 +684,9 @@ function replaceMinistrySlot(slotKey: string) {
               <span className="rounded-full border border-[var(--ok)] bg-[var(--ok-soft)] px-3 py-1 text-[var(--ok)]">
                 Confirmado
               </span>
+              <span className="rounded-full border border-[var(--accent)] bg-[var(--accent-soft)] px-3 py-1 text-[var(--accent)]">
+                Ocupado
+              </span>
             </div>
           </div>
           <SlotOverview
@@ -693,6 +710,48 @@ function replaceMinistrySlot(slotKey: string) {
           />
         </div>
       </Panel>
+
+      <div className="pointer-events-none fixed -left-[99999px] top-0 opacity-0">
+        <div
+          ref={weekImageRef}
+          className="w-[1280px] rounded-[32px] bg-[#f7f1e7] p-8 text-[#2f261d]"
+        >
+          <div className="rounded-[28px] border border-[rgba(120,94,59,0.14)] bg-[rgba(255,249,240,0.96)] p-6 shadow-[0_20px_50px_rgba(49,42,24,0.10)]">
+            <div className="flex items-end justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[var(--ink-soft)]">
+                  Agenda do Palco
+                </p>
+                <p className="mt-2 font-display text-4xl text-[var(--ink)]">
+                  Semana de {formatDateFullPtBr(data.weekStart)}
+                </p>
+              </div>
+              <div className="flex gap-2 text-xs font-semibold uppercase tracking-[0.16em]">
+                <span className="rounded-full border border-[var(--line)] bg-white px-3 py-1 text-[var(--ink-soft)]">
+                  Livre
+                </span>
+                <span className="rounded-full border border-[var(--warning)] bg-[var(--warning-soft)] px-3 py-1 text-[var(--warning)]">
+                  Pendente
+                </span>
+                <span className="rounded-full border border-[var(--ok)] bg-[var(--ok-soft)] px-3 py-1 text-[var(--ok)]">
+                  Confirmado
+                </span>
+                <span className="rounded-full border border-[var(--accent)] bg-[var(--accent-soft)] px-3 py-1 text-[var(--accent)]">
+                  Ocupado
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <ExportSlotOverview
+                days={data.days}
+                slotHours={data.slotHours}
+                reservationsBySlot={reservationsBySlot}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
 
       {pendingDialogRequest ? (
         <ApprovalDialog
@@ -947,9 +1006,13 @@ function SlotPicker({
                     onClick={() => onToggle(slotKey)}
                     className={clsx(
                       "min-h-20 rounded-2xl border px-3 py-2 text-left text-sm transition",
+                      reservation?.isBlocked &&
+                        "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]",
                       reservation?.status === "pending" &&
+                        !reservation?.isBlocked &&
                         "border-[var(--warning)] bg-[var(--warning-soft)] text-[var(--warning)]",
                       reservation &&
+                        !reservation.isBlocked &&
                         reservation.status !== "pending" &&
                         "border-[var(--ok)] bg-[var(--ok-soft)] text-[var(--ok)]",
                       !reservation &&
@@ -965,9 +1028,9 @@ function SlotPicker({
                   >
                     {reservation ? (
                       <>
-                        <span className="block font-semibold">{reservation.ministryName}</span>
+                        <span className="block font-semibold">{getReservationLabel(reservation)}</span>
                         <span className="mt-1 block text-xs uppercase tracking-[0.16em]">
-                          {reservation.status === "pending" ? "Pendente" : "Confirmado"}
+                          {getReservationStatusLabel(reservation)}
                         </span>
                       </>
                     ) : (
@@ -1040,9 +1103,13 @@ function SlotOverview({
                   }}
                   className={clsx(
                     "min-h-20 rounded-2xl border px-3 py-2 text-left text-sm transition",
+                    reservation?.isBlocked &&
+                      "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]",
                     reservation?.status === "pending" &&
+                      !reservation?.isBlocked &&
                       "border-[var(--warning)] bg-[var(--warning-soft)] text-[var(--warning)]",
                     reservation &&
+                      !reservation.isBlocked &&
                       reservation.status !== "pending" &&
                       "border-[var(--ok)] bg-[var(--ok-soft)] text-[var(--ok)]",
                     !reservation &&
@@ -1056,16 +1123,21 @@ function SlotOverview({
                   {reservation ? (
                     <>
                       <span className="block text-sm font-semibold leading-5">
-                        {reservation.ministryName}
+                        {getReservationLabel(reservation)}
                       </span>
                       <span className="mt-1 block text-[11px] uppercase tracking-[0.12em] leading-4">
-                        {reservation.status === "pending" ? "Pendente" : "Confirmado"}
+                        {getReservationStatusLabel(reservation)}
                       </span>
-                      {isAdmin ? (
+                      {isAdmin && !reservation.isBlocked ? (
                         <span className="mt-1 block text-[11px] leading-4 text-current/80">
                           {reservation.status === "pending"
                             ? "Toque para aprovar"
                             : "Toque para gerenciar"}
+                        </span>
+                      ) : null}
+                      {isAdmin && reservation.isBlocked ? (
+                        <span className="mt-1 block text-[11px] leading-4 text-current/80">
+                          Toque para desbloquear
                         </span>
                       ) : null}
                     </>
@@ -1082,6 +1154,79 @@ function SlotOverview({
                     </>
                   )}
                 </button>
+              );
+            })}
+          </Fragment>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ExportSlotOverview({
+  days,
+  slotHours,
+  reservationsBySlot,
+}: {
+  days: string[];
+  slotHours: number[];
+  reservationsBySlot: Map<string, DashboardData["reservations"][number]>;
+}) {
+  return (
+    <div className="grid gap-2">
+      <div className="grid grid-cols-[92px_repeat(7,minmax(0,1fr))] gap-2">
+        <div />
+        {days.map((day) => (
+          <div
+            key={day}
+            className="rounded-2xl bg-[var(--panel)] px-3 py-2 text-center text-sm font-semibold text-[var(--ink)]"
+          >
+            <span className="block">{formatDatePtBr(day)}</span>
+            <span className="mt-1 block text-[10px] font-semibold tracking-[0.18em] text-[var(--ink-soft)]">
+              {formatWeekdayShortPtBr(day)}
+            </span>
+          </div>
+        ))}
+
+        {slotHours.map((hour) => (
+          <Fragment key={`export-${hour}`}>
+            <div className="flex items-center rounded-2xl bg-[var(--panel)] px-3 py-3 text-sm font-semibold text-[var(--ink)]">
+              {hourLabel(hour)}
+            </div>
+            {days.map((day) => {
+              const slotKey = `${day}T${String(hour).padStart(2, "0")}:00`;
+              const reservation = reservationsBySlot.get(slotKey);
+
+              return (
+                <div
+                  key={`export-${slotKey}`}
+                  className={clsx(
+                    "min-h-20 rounded-2xl border px-3 py-2 text-left text-sm",
+                    reservation?.isBlocked &&
+                      "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]",
+                    reservation?.status === "pending" &&
+                      !reservation?.isBlocked &&
+                      "border-[var(--warning)] bg-[var(--warning-soft)] text-[var(--warning)]",
+                    reservation &&
+                      !reservation.isBlocked &&
+                      reservation.status !== "pending" &&
+                      "border-[var(--ok)] bg-[var(--ok-soft)] text-[var(--ok)]",
+                    !reservation && "border-[var(--line)] bg-white text-[var(--ink-soft)]",
+                  )}
+                >
+                  {reservation ? (
+                    <>
+                      <span className="block text-sm font-semibold leading-5">
+                        {getReservationLabel(reservation)}
+                      </span>
+                      <span className="mt-1 block text-[11px] uppercase tracking-[0.12em] leading-4">
+                        {getReservationStatusLabel(reservation)}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="block text-sm font-semibold leading-5">Livre</span>
+                  )}
+                </div>
               );
             })}
           </Fragment>
@@ -1193,14 +1338,16 @@ function ManageReservationDialog({
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-[var(--ink-soft)]">
-              Gerenciar agendamento
+              {request.isBlocked ? "Gerenciar bloqueio" : "Gerenciar agendamento"}
             </p>
             <h3 className="mt-2 font-display text-4xl text-[var(--ink)]">
               {request.ministryName}
             </h3>
-            <p className="mt-2 text-sm text-[var(--ink-soft)]">
-              Solicitado por {request.requestedByName}.
-            </p>
+            {!request.isBlocked ? (
+              <p className="mt-2 text-sm text-[var(--ink-soft)]">
+                Solicitado por {request.requestedByName}.
+              </p>
+            ) : null}
           </div>
           <button type="button" onClick={onClose} className="rounded-full border border-[var(--line)] px-4 py-2 text-sm font-semibold text-[var(--ink)]">
             Fechar
@@ -1224,13 +1371,15 @@ function ManageReservationDialog({
         </div>
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
-          {isAdmin && request.status === "pending" ? (
+          {isAdmin && request.status === "pending" && !request.isBlocked ? (
             <button type="button" onClick={onOpenApproval} className="button-primary">
               Abrir aprovação
             </button>
           ) : (
             <div className="rounded-[1.25rem] border border-[var(--line)] bg-[var(--panel)] px-4 py-4 text-sm text-[var(--ink-soft)]">
-              Use o cancelamento para liberar o horário.
+              {request.isBlocked
+                ? "Use o desbloqueio para liberar o horário."
+                : "Use o cancelamento para liberar o horário."}
             </div>
           )}
           <button
@@ -1239,7 +1388,7 @@ function ManageReservationDialog({
             onClick={onCancel}
             className="rounded-full border border-[var(--danger)] bg-[var(--danger-soft)] px-5 py-3 text-sm font-semibold text-[var(--danger)]"
           >
-            Cancelar agendamento
+            {request.isBlocked ? "Desbloquear horário" : "Cancelar agendamento"}
           </button>
         </div>
       </div>
@@ -1375,6 +1524,7 @@ function DirectBookingDialog({
               onChange={(event) => onSelectMinistry(event.target.value)}
               className="input-base"
             >
+              <option value={BLOCKED_DIRECT_BOOKING_ID}>Bloquear horário</option>
               {ministries.map((ministry) => (
                 <option key={ministry.id} value={ministry.id}>
                   {ministry.name}
@@ -1383,16 +1533,26 @@ function DirectBookingDialog({
             </select>
           </Field>
           <div className="rounded-[1.25rem] border border-[var(--accent)] bg-[var(--accent-soft)] px-4 py-4">
-            <p className="font-semibold text-[var(--ink)]">Agendamento direto confirmado</p>
+            <p className="font-semibold text-[var(--ink)]">
+              {selectedMinistryId === BLOCKED_DIRECT_BOOKING_ID
+                ? "Horário ficará ocupado"
+                : "Agendamento direto confirmado"}
+            </p>
             <p className="mt-1 text-sm text-[var(--ink-soft)]">
-              Será salvo como confirmado.
+              {selectedMinistryId === BLOCKED_DIRECT_BOOKING_ID
+                ? "Será salvo como bloqueio da coordenação."
+                : "Será salvo como confirmado."}
             </p>
           </div>
         </div>
 
         <div className="mt-6 flex justify-end">
           <button type="button" disabled={isPending || !selectedMinistryId} onClick={onSave} className="button-primary">
-            {isPending ? "Salvando..." : "Salvar agendamento"}
+            {isPending
+              ? "Salvando..."
+              : selectedMinistryId === BLOCKED_DIRECT_BOOKING_ID
+                ? "Salvar bloqueio"
+                : "Salvar agendamento"}
           </button>
         </div>
       </div>

@@ -10,6 +10,7 @@ export type SlotReservation = {
   ministryName: string;
   requestedByName: string;
   status: BookingStatus;
+  isBlocked: boolean;
 };
 
 export type DashboardRequest = {
@@ -23,6 +24,7 @@ export type DashboardRequest = {
   createdAt: string;
   requestedSlotKeys: string[];
   reservedSlotKeys: string[];
+  isBlocked: boolean;
 };
 
 export type DashboardData = {

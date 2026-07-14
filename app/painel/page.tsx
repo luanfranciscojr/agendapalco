@@ -46,6 +46,9 @@ export default async function PainelPage() {
           <span className="rounded-full border border-[var(--ok)] bg-[var(--ok-soft)] px-3 py-1 text-[var(--ok)]">
             Confirmado
           </span>
+          <span className="rounded-full border border-[var(--accent)] bg-[var(--accent-soft)] px-3 py-1 text-[var(--accent)]">
+            Ocupado
+          </span>
         </div>
 
         <div className="mt-5 grid gap-3 overflow-x-auto">
@@ -75,9 +78,13 @@ export default async function PainelPage() {
                       key={slotKey}
                       className={clsx(
                         "min-h-20 rounded-2xl border px-3 py-2 text-left text-sm",
+                        reservation?.isBlocked &&
+                          "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]",
                         reservation?.status === "pending" &&
+                          !reservation?.isBlocked &&
                           "border-[var(--warning)] bg-[var(--warning-soft)] text-[var(--warning)]",
                         reservation &&
+                          !reservation.isBlocked &&
                           reservation.status !== "pending" &&
                           "border-[var(--ok)] bg-[var(--ok-soft)] text-[var(--ok)]",
                         !reservation && "border-[var(--line)] bg-white text-[var(--ink-soft)]",
@@ -85,9 +92,15 @@ export default async function PainelPage() {
                     >
                       {reservation ? (
                         <>
-                          <span className="block font-semibold">{reservation.ministryName}</span>
+                          <span className="block font-semibold">
+                            {reservation.isBlocked ? "Ocupado" : reservation.ministryName}
+                          </span>
                           <span className="mt-1 block text-xs uppercase tracking-[0.16em]">
-                            {reservation.status === "pending" ? "Pendente" : "Confirmado"}
+                            {reservation.isBlocked
+                              ? "Bloqueado"
+                              : reservation.status === "pending"
+                                ? "Pendente"
+                                : "Confirmado"}
                           </span>
                         </>
                       ) : (

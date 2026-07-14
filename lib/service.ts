@@ -7,6 +7,9 @@ import {
 
 import type { AuthUser } from "@/lib/auth";
 import {
+  BLOCKED_DIRECT_BOOKING_ID,
+  BLOCKED_MINISTRY_NAME,
+  BLOCKED_PUBLIC_LABEL,
   CONFIG_KEY_MAX_REQUESTS,
   DEFAULT_MAX_REQUESTS_PER_WEEK,
   SLOT_HOURS,
@@ -79,6 +82,20 @@ function canCancelRequest(currentUser: AuthUser, request: {
   );
 }
 
+function isBlockedMinistryName(name: string) {
+  return name === BLOCKED_MINISTRY_NAME;
+}
+
+async function getOrCreateBlockedMinistry(
+  db: PrismaClient | Prisma.TransactionClient,
+) {
+  return db.ministry.upsert({
+    where: { name: BLOCKED_MINISTRY_NAME },
+    update: {},
+    create: { name: BLOCKED_MINISTRY_NAME },
+  });
+}
+
 function getWeekDatesOrThrow(slotKeys: string[]) {
   if (!slotKeys.length || !validateSlotsInCurrentWeek(slotKeys)) {
     throw new AppError("Somente a semana atual pode ser usada.", 422);
@@ -145,6 +162,7 @@ function mapRequest(request: Prisma.BookingRequestGetPayload<{
     reservedSlots: true;
   };
 }>) {
+  const isBlocked = isBlockedMinistryName(request.ministry.name);
   const normalizedStatus =
     request.reservedSlots.length === 0 &&
     request.reviewNote?.toLowerCase().includes("cancelado")
@@ -154,7 +172,7 @@ function mapRequest(request: Prisma.BookingRequestGetPayload<{
   return {
     id: request.id,
     ministryId: request.ministryId,
-    ministryName: request.ministry.name,
+    ministryName: isBlocked ? BLOCKED_PUBLIC_LABEL : request.ministry.name,
     requestedByName: request.requestedByName,
     origin: request.origin,
     status: normalizedStatus,
@@ -166,6 +184,7 @@ function mapRequest(request: Prisma.BookingRequestGetPayload<{
     reservedSlotKeys: request.reservedSlots.map((slot) =>
       buildSlotKey(slot.slotDate.toISOString().slice(0, 10), slot.hour),
     ),
+    isBlocked,
   };
 }
 
@@ -389,10 +408,12 @@ export async function getDashboardData(currentUser: AuthUser): Promise<Dashboard
     maxRequestsPerMinistryPerWeek: Number(
       config?.value ?? DEFAULT_MAX_REQUESTS_PER_WEEK,
     ),
-    ministries: ministries.map((ministry) => ({
-      id: ministry.id,
-      name: ministry.name,
-    })),
+    ministries: ministries
+      .filter((ministry) => !isBlockedMinistryName(ministry.name))
+      .map((ministry) => ({
+        id: ministry.id,
+        name: ministry.name,
+      })),
     requests: requests.map(mapRequest),
     reservations: reservedSlots.map((slot) => ({
       slotKey: buildSlotKey(slot.slotDate.toISOString().slice(0, 10), slot.hour),
@@ -400,9 +421,12 @@ export async function getDashboardData(currentUser: AuthUser): Promise<Dashboard
       hour: slot.hour,
       requestId: slot.bookingRequestId,
       ministryId: slot.bookingRequest.ministryId,
-      ministryName: slot.bookingRequest.ministry.name,
+      ministryName: isBlockedMinistryName(slot.bookingRequest.ministry.name)
+        ? BLOCKED_PUBLIC_LABEL
+        : slot.bookingRequest.ministry.name,
       requestedByName: slot.bookingRequest.requestedByName,
       status: slot.bookingRequest.status,
+      isBlocked: isBlockedMinistryName(slot.bookingRequest.ministry.name),
     })),
   };
 }
@@ -437,9 +461,12 @@ export async function getPublicPanelData(): Promise<PublicPanelData> {
       hour: slot.hour,
       requestId: slot.bookingRequestId,
       ministryId: slot.bookingRequest.ministryId,
-      ministryName: slot.bookingRequest.ministry.name,
+      ministryName: isBlockedMinistryName(slot.bookingRequest.ministry.name)
+        ? BLOCKED_PUBLIC_LABEL
+        : slot.bookingRequest.ministry.name,
       requestedByName: slot.bookingRequest.requestedByName,
       status: slot.bookingRequest.status,
+      isBlocked: isBlockedMinistryName(slot.bookingRequest.ministry.name),
     })),
   };
 }
@@ -471,6 +498,7 @@ function getCreatePayloadForUser(currentUser: AuthUser, input: CreateBookingInpu
     ministryId: input.ministryId,
     requesterName: currentUser.name,
     submissionMode: input.submissionMode,
+    isBlocked: input.ministryId === BLOCKED_DIRECT_BOOKING_ID,
   };
 }
 
@@ -531,11 +559,12 @@ export async function createBookingRequest(currentUser: AuthUser, input: CreateB
       });
 
       if (conflicts.length) {
-        const conflict = conflicts[0];
-        throw new AppError(
-          `Horário ocupado por ${conflict.bookingRequest.ministry.name}.`,
-          409,
-        );
+        throw new AppError("Horário ocupado.", 409);
+      }
+
+      let targetMinistryId = payload.ministryId;
+      if (payload.role === "admin" && payload.isBlocked) {
+        targetMinistryId = (await getOrCreateBlockedMinistry(tx)).id;
       }
 
       const status =
@@ -549,11 +578,16 @@ export async function createBookingRequest(currentUser: AuthUser, input: CreateB
 
       const bookingRequest = await tx.bookingRequest.create({
         data: {
-          ministryId: payload.ministryId,
+          ministryId: targetMinistryId,
           requestedByName: payload.requesterName,
           origin,
           status,
-          reviewNote: payload.role === "admin" ? input.reviewNote || null : null,
+          reviewNote:
+            payload.role === "admin"
+              ? payload.isBlocked
+                ? "Horário bloqueado pela coordenação."
+                : input.reviewNote || null
+              : null,
           weekStart: dateKeyToUtcDate(weekStart),
           requestedSlots: {
             create: parsed.map(({ dateKey, hour }) => ({
@@ -576,14 +610,16 @@ export async function createBookingRequest(currentUser: AuthUser, input: CreateB
       });
 
       if (status === BookingStatus.approved) {
-        const targets = await getMinistryNotificationTargets(tx, payload.ministryId);
-        notifications = buildApprovedSlotNotifications(
-          targets,
-          bookingRequest.reservedSlots.map((slot) =>
-            buildSlotKey(slot.slotDate.toISOString().slice(0, 10), slot.hour),
-          ),
-          bookingRequest.ministry.name,
-        );
+        if (!isBlockedMinistryName(bookingRequest.ministry.name)) {
+          const targets = await getMinistryNotificationTargets(tx, targetMinistryId);
+          notifications = buildApprovedSlotNotifications(
+            targets,
+            bookingRequest.reservedSlots.map((slot) =>
+              buildSlotKey(slot.slotDate.toISOString().slice(0, 10), slot.hour),
+            ),
+            bookingRequest.ministry.name,
+          );
+        }
       }
 
       if (status === BookingStatus.pending && origin === BookingOrigin.ministry_request) {

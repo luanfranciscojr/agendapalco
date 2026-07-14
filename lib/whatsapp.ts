@@ -1,3 +1,4 @@
+import { getPublicReviewTokenValue } from "@/lib/public-review";
 import { formatDatePtBr, hourLabel } from "@/lib/time";
 
 const SMSBARATO_BASE_URL =
@@ -18,6 +19,7 @@ type WhatsAppMessageInput = {
   dateKey: string;
   hour: number;
   ministryName?: string;
+  requestId?: string;
 };
 
 function normalizePhone(phone: string) {
@@ -45,10 +47,19 @@ function getTemplateParams(
   input: WhatsAppMessageInput,
 ) {
   if (template === "pending_admin") {
+    const approveToken = input.requestId
+      ? getPublicReviewTokenValue(input.requestId, "approve")
+      : "";
+    const rejectToken = input.requestId
+      ? getPublicReviewTokenValue(input.requestId, "reject")
+      : "";
+
     return [
       input.ministryName ?? input.recipientName,
       formatDatePtBr(input.dateKey),
       hourLabel(input.hour),
+      approveToken,
+      rejectToken,
     ];
   }
 
@@ -63,6 +74,7 @@ export function getWhatsAppConfigStatus() {
   return {
     enabled: canSendWhatsApp(),
     baseUrl: SMSBARATO_BASE_URL,
+    publicReviewBaseUrl: process.env.APP_BASE_URL ?? "http://localhost:3001",
     templates: {
       approved: SMSBARATO_TEMPLATE_APPROVED,
       rejected: SMSBARATO_TEMPLATE_REJECTED,

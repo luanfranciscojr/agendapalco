@@ -22,7 +22,7 @@ Aplicação `Next.js` para controlar a agenda semanal do palco da igreja com `My
 ## Configuração
 
 1. Copie `.env.example` para `.env`.
-   Configure também `SMSBARATO_API_KEY` se quiser disparar WhatsApp automático ao confirmar agendamentos.
+   Configure também `APP_BASE_URL`, `PUBLIC_REVIEW_SECRET` e `SMSBARATO_API_KEY` se quiser disparar WhatsApp com links públicos de aprovação.
 2. Suba o banco com Docker:
 
 ```bash
@@ -103,7 +103,11 @@ Olá, {{1}}! Seu agendamento de palco para o dia {{2}}, às {{3}}, foi reprovado
 - Template para admin em nova solicitação:
 
 ```txt
+[Palco NIBTB]
 Nova solicitação de agendamento de palco. O ministério {{1}} solicitou o uso do palco no dia {{2}}, às {{3}}. Aguardando sua aprovação.
+Para aprovar: https://palco.nibtabernaculo.org.br/aprovar?token={{4}}
+Para reprovar: https://palco.nibtabernaculo.org.br/reprovar?token={{5}}
+Para mais informações acesse: https://palco.nibtabernaculo.org.br
 ```
 
 - Parâmetros enviados nos templates de confirmação e reprovação:
@@ -114,7 +118,11 @@ Nova solicitação de agendamento de palco. O ministério {{1}} solicitou o uso 
   - `{{1}}`: nome do ministério
   - `{{2}}`: data em formato `dd/mm`
   - `{{3}}`: hora em formato `HH:00`
+  - `{{4}}`: token público de aprovação
+  - `{{5}}`: token público de reprovação
 - Variáveis de ambiente:
+  - `APP_BASE_URL`
+  - `PUBLIC_REVIEW_SECRET`
   - `SMSBARATO_API_KEY`
   - `SMSBARATO_BASE_URL`
   - `SMSBARATO_TEMPLATE_APPROVED`

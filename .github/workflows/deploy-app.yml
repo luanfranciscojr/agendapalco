@@ -60,6 +60,8 @@ jobs:
           GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
+          PUBLIC_REVIEW_SECRET: ${{ secrets.PUBLIC_REVIEW_SECRET }}
           SMSBARATO_API_KEY: ${{ secrets.SMSBARATO_API_KEY }}
           SMSBARATO_BASE_URL: ${{ secrets.SMSBARATO_BASE_URL }}
           SMSBARATO_TEMPLATE_APPROVED: ${{ secrets.SMSBARATO_TEMPLATE_APPROVED }}
@@ -79,6 +81,8 @@ jobs:
               -p ${HOST_PORT}:${APP_PORT} \
               -e PORT=${APP_PORT} \
               -e DATABASE_URL="${DATABASE_URL}" \
+              -e APP_BASE_URL="${APP_BASE_URL}" \
+              -e PUBLIC_REVIEW_SECRET="${PUBLIC_REVIEW_SECRET}" \
               -e SMSBARATO_API_KEY="${SMSBARATO_API_KEY}" \
               -e SMSBARATO_BASE_URL="${SMSBARATO_BASE_URL}" \
               -e SMSBARATO_TEMPLATE_APPROVED="${SMSBARATO_TEMPLATE_APPROVED}" \

@@ -23,6 +23,7 @@ import {
 import { dateKeyToUtcDate, getCurrentWeekContext, parseSlotKey, buildSlotKey } from "@/lib/time";
 import type { DashboardData } from "@/lib/types";
 import { validateHour } from "@/lib/validators";
+import { parsePublicReviewToken } from "@/lib/public-review";
 import { sendWhatsAppTemplate } from "@/lib/whatsapp";
 
 export class AppError extends Error {
@@ -45,6 +46,7 @@ type ApprovedSlotNotification = NotificationTarget & {
 };
 
 type PendingAdminNotification = NotificationTarget & {
+  requestId: string;
   ministryName: string;
   dateKey: string;
   hour: number;
@@ -304,6 +306,7 @@ function buildApprovedSlotNotifications(
 
 function buildPendingAdminNotifications(
   targets: NotificationTarget[],
+  requestId: string,
   ministryName: string,
   slotKeys: string[],
 ) {
@@ -312,6 +315,7 @@ function buildPendingAdminNotifications(
 
     return targets.map((target) => ({
       ...target,
+      requestId,
       ministryName,
       dateKey,
       hour,
@@ -545,6 +549,7 @@ export async function createBookingRequest(currentUser: AuthUser, input: CreateB
         const adminTargets = await getAdminNotificationTargets(tx);
         pendingAdminNotifications = buildPendingAdminNotifications(
           adminTargets,
+          bookingRequest.id,
           bookingRequest.ministry.name,
           bookingRequest.reservedSlots.map((slot) =>
             buildSlotKey(slot.slotDate.toISOString().slice(0, 10), slot.hour),
@@ -699,6 +704,55 @@ export async function reviewBookingRequest(requestId: string, input: ReviewBooki
   await sendRejectedSlotNotifications(rejectedNotifications);
 
   return updatedRequest;
+}
+
+export async function reviewBookingRequestByPublicLink(token: string) {
+  const payload = parsePublicReviewToken(token);
+  const bookingRequest = await prisma.bookingRequest.findUnique({
+    where: { id: payload.requestId },
+    include: {
+      ministry: true,
+      requestedSlots: {
+        orderBy: [{ slotDate: "asc" }, { hour: "asc" }],
+      },
+      reservedSlots: {
+        orderBy: [{ slotDate: "asc" }, { hour: "asc" }],
+      },
+    },
+  });
+
+  if (!bookingRequest) {
+    throw new AppError("Agendamento não encontrado.", 404);
+  }
+
+  if (bookingRequest.status !== BookingStatus.pending) {
+    return {
+      alreadyProcessed: true as const,
+      action: payload.action,
+      request: mapRequest(bookingRequest),
+    };
+  }
+
+  const approvedSlotKeys =
+    payload.action === "approve"
+      ? bookingRequest.requestedSlots.map((slot) =>
+          buildSlotKey(slot.slotDate.toISOString().slice(0, 10), slot.hour),
+        )
+      : [];
+
+  const updated = await reviewBookingRequest(payload.requestId, {
+    approvedSlotKeys,
+    reviewNote:
+      payload.action === "approve"
+        ? "Aprovado por link público."
+        : "Reprovado por link público.",
+  });
+
+  return {
+    alreadyProcessed: false as const,
+    action: payload.action,
+    request: updated,
+  };
 }
 
 export async function updateSystemConfig(maxRequestsPerMinistryPerWeek: number) {

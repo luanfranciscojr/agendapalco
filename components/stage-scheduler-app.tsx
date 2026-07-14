@@ -69,6 +69,7 @@ export function StageSchedulerApp({ data }: Props) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
   const [configValue, setConfigValue] = useState(
@@ -249,6 +250,7 @@ function replaceMinistrySlot(slotKey: string) {
         setCurrentPassword("");
         setNewPassword("");
         setConfirmPassword("");
+        setIsPasswordDialogOpen(false);
         setFeedback("Senha atualizada.");
       } catch (error) {
         setFeedback(error instanceof Error ? error.message : "Falha ao atualizar senha.");
@@ -378,51 +380,14 @@ function replaceMinistrySlot(slotKey: string) {
           ) : null}
         </div>
 
-        <div className="mt-4 rounded-[1.4rem] border border-[var(--line)] bg-[var(--panel)] p-4">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Field label="Senha atual">
-              <input
-                type="password"
-                value={currentPassword}
-                onChange={(event) => setCurrentPassword(event.target.value)}
-                placeholder="Digite a senha atual"
-                className="input-base"
-              />
-            </Field>
-            <Field label="Nova senha">
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(event) => setNewPassword(event.target.value)}
-                placeholder="Digite a nova senha"
-                className="input-base"
-              />
-            </Field>
-            <Field label="Confirmar senha">
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(event) => setConfirmPassword(event.target.value)}
-                placeholder="Repita a nova senha"
-                className="input-base"
-              />
-            </Field>
-          </div>
-          <div className="mt-3 flex justify-end">
-            <button
-              type="button"
-              disabled={
-                isPending ||
-                !currentPassword.trim() ||
-                !newPassword.trim() ||
-                !confirmPassword.trim()
-              }
-              onClick={handlePasswordSave}
-              className="button-primary"
-            >
-              {isPending ? "Salvando..." : "Alterar senha"}
-            </button>
-          </div>
+        <div className="mt-4 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setIsPasswordDialogOpen(true)}
+            className="button-secondary"
+          >
+            Alterar senha
+          </button>
         </div>
 
         {feedback ? (
@@ -432,6 +397,23 @@ function replaceMinistrySlot(slotKey: string) {
         ) : null}
       </section>
 
+      {isPasswordDialogOpen ? (
+        <PasswordDialog
+          currentPassword={currentPassword}
+          newPassword={newPassword}
+          confirmPassword={confirmPassword}
+          isPending={isPending}
+          onClose={() => {
+            if (isPending) return;
+            setIsPasswordDialogOpen(false);
+          }}
+          onCurrentPasswordChange={setCurrentPassword}
+          onNewPasswordChange={setNewPassword}
+          onConfirmPasswordChange={setConfirmPassword}
+          onSave={handlePasswordSave}
+        />
+      ) : null}
+
       <div className={clsx("grid gap-6", isAdmin ? "lg:grid-cols-[0.95fr_1.05fr]" : "lg:grid-cols-[1.1fr_0.9fr]")}>
         {!isAdmin ? (
           <>
@@ -440,11 +422,6 @@ function replaceMinistrySlot(slotKey: string) {
               title="Novo agendamento"
               description="Escolha um horário livre."
             >
-              <div className="grid gap-4 sm:grid-cols-2">
-                <StaticField label="Ministério" value={currentUser.ministryName ?? "-"} />
-                <StaticField label="Líder" value={currentUser.name} />
-              </div>
-
               <div className="rounded-[1.5rem] border border-[var(--line)] bg-[var(--panel)] p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
@@ -733,17 +710,6 @@ function Field({
   );
 }
 
-function StaticField({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="grid gap-2">
-      <span className="text-sm font-semibold text-[var(--ink)]">{label}</span>
-      <div className="input-base flex items-center bg-[var(--panel)] text-[var(--ink)]">
-        {value}
-      </div>
-    </div>
-  );
-}
-
 function Panel({
   eyebrow,
   title,
@@ -768,6 +734,94 @@ function Panel({
       ) : null}
       <div className="mt-6 grid gap-5">{children}</div>
     </section>
+  );
+}
+
+function PasswordDialog({
+  currentPassword,
+  newPassword,
+  confirmPassword,
+  isPending,
+  onClose,
+  onCurrentPasswordChange,
+  onNewPasswordChange,
+  onConfirmPasswordChange,
+  onSave,
+}: {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+  isPending: boolean;
+  onClose: () => void;
+  onCurrentPasswordChange: (value: string) => void;
+  onNewPasswordChange: (value: string) => void;
+  onConfirmPasswordChange: (value: string) => void;
+  onSave: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(24,18,12,0.5)] px-4 py-8 backdrop-blur-sm">
+      <div className="w-full max-w-xl rounded-[2rem] border border-white/60 bg-[rgba(255,249,240,0.98)] p-6 shadow-[0_30px_80px_rgba(24,18,12,0.25)] sm:p-7">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs uppercase tracking-[0.3em] text-[var(--ink-soft)]">
+              Conta
+            </p>
+            <h3 className="mt-2 font-display text-4xl text-[var(--ink)]">
+              Alterar senha
+            </h3>
+          </div>
+          <button type="button" onClick={onClose} className="button-secondary">
+            Fechar
+          </button>
+        </div>
+
+        <div className="mt-6 grid gap-4">
+          <Field label="Senha atual">
+            <input
+              type="password"
+              value={currentPassword}
+              onChange={(event) => onCurrentPasswordChange(event.target.value)}
+              placeholder="Digite a senha atual"
+              className="input-base"
+            />
+          </Field>
+          <Field label="Nova senha">
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(event) => onNewPasswordChange(event.target.value)}
+              placeholder="Digite a nova senha"
+              className="input-base"
+            />
+          </Field>
+          <Field label="Confirmar senha">
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(event) => onConfirmPasswordChange(event.target.value)}
+              placeholder="Repita a nova senha"
+              className="input-base"
+            />
+          </Field>
+        </div>
+
+        <div className="mt-6 flex justify-end">
+          <button
+            type="button"
+            disabled={
+              isPending ||
+              !currentPassword.trim() ||
+              !newPassword.trim() ||
+              !confirmPassword.trim()
+            }
+            onClick={onSave}
+            className="button-primary"
+          >
+            {isPending ? "Salvando..." : "Salvar nova senha"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

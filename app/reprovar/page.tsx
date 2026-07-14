@@ -5,12 +5,12 @@ import { reviewBookingRequestByPublicLink } from "@/lib/service";
 export const dynamic = "force-dynamic";
 
 type Props = {
-  searchParams?: Promise<{ token?: string }>;
+  searchParams?: Promise<{ t?: string }>;
 };
 
 export default async function ReprovarPage({ searchParams }: Props) {
   const params = (await searchParams) ?? {};
-  const token = params.token;
+  const token = params.t;
   let title = "Agendamento reprovado";
   let description = "";
 

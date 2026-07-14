@@ -102,7 +102,7 @@ export function buildPublicReviewPath(
   action: PublicReviewAction,
 ) {
   const url = new URL(action === "approve" ? "/aprovar" : "/reprovar", "http://local");
-  url.searchParams.set("token", createPublicReviewToken(requestId, action));
+  url.searchParams.set("t", createPublicReviewToken(requestId, action));
   return `${url.pathname}${url.search}`;
 }
 

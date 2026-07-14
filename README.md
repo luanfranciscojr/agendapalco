@@ -110,8 +110,8 @@ Olá, {{1}}! Seu agendamento de palco para o dia {{2}}, às {{3}}, foi reprovado
 ```txt
 [Palco NIBTB]
 Nova solicitação de agendamento de palco. O ministério {{1}} solicitou o uso do palco no dia {{2}}, às {{3}}. Aguardando sua aprovação.
-Para aprovar: https://palco.nibtabernaculo.org.br/aprovar?token={{4}}
-Para reprovar: https://palco.nibtabernaculo.org.br/reprovar?token={{5}}
+Para aprovar: https://palco.nibtabernaculo.org.br/aprovar?t={{4}}
+Para reprovar: https://palco.nibtabernaculo.org.br/reprovar?t={{5}}
 Para mais informações acesse: https://palco.nibtabernaculo.org.br
 ```
 

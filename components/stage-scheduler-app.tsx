@@ -69,7 +69,7 @@ function getReservationLabel(reservation: DashboardData["reservations"][number])
 
 function getReservationStatusLabel(reservation: DashboardData["reservations"][number]) {
   if (reservation.isBlocked) {
-    return "Bloqueado";
+    return "Ocupado";
   }
 
   return reservation.status === "pending" ? "Pendente" : "Confirmado";
@@ -396,10 +396,10 @@ function replaceMinistrySlot(slotKey: string) {
                 className="h-auto w-[92px]"
               />
             </div>
-            <span className="rounded-full border border-[var(--line)] bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ink-soft)]">
+            <span className="rounded-full border border-[var(--line)] bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.1em] text-[var(--ink-soft)]">
               Semana de {formatDateFullPtBr(data.weekStart)}
             </span>
-            <span className="rounded-full border border-[var(--line)] bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ink-soft)]">
+            <span className="rounded-full border border-[var(--line)] bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.1em] text-[var(--ink-soft)]">
               {isAdmin
                 ? `${data.requests.filter((request) => request.status === "pending").length} pendente(s)`
                 : `${data.maxRequestsPerMinistryPerWeek} por semana`}
@@ -674,7 +674,7 @@ function replaceMinistrySlot(slotKey: string) {
                 Semana de {formatDateFullPtBr(data.weekStart)}
               </p>
             </div>
-            <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.16em]">
+            <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.08em]">
               <span className="rounded-full border border-[var(--line)] bg-white px-3 py-1 text-[var(--ink-soft)]">
                 Livre
               </span>
@@ -684,7 +684,7 @@ function replaceMinistrySlot(slotKey: string) {
               <span className="rounded-full border border-[var(--ok)] bg-[var(--ok-soft)] px-3 py-1 text-[var(--ok)]">
                 Confirmado
               </span>
-              <span className="rounded-full border border-[var(--accent)] bg-[var(--accent-soft)] px-3 py-1 text-[var(--accent)]">
+              <span className="rounded-full border border-[var(--danger)] bg-[var(--danger-soft)] px-3 py-1 text-[var(--danger)]">
                 Ocupado
               </span>
             </div>
@@ -719,14 +719,14 @@ function replaceMinistrySlot(slotKey: string) {
           <div className="rounded-[28px] border border-[rgba(120,94,59,0.14)] bg-[rgba(255,249,240,0.96)] p-6 shadow-[0_20px_50px_rgba(49,42,24,0.10)]">
             <div className="flex items-end justify-between gap-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[var(--ink-soft)]">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ink-soft)]">
                   Agenda do Palco
                 </p>
                 <p className="mt-2 font-display text-4xl text-[var(--ink)]">
                   Semana de {formatDateFullPtBr(data.weekStart)}
                 </p>
               </div>
-              <div className="flex gap-2 text-xs font-semibold uppercase tracking-[0.16em]">
+              <div className="flex gap-2 text-xs font-semibold uppercase tracking-[0.08em]">
                 <span className="rounded-full border border-[var(--line)] bg-white px-3 py-1 text-[var(--ink-soft)]">
                   Livre
                 </span>
@@ -736,7 +736,7 @@ function replaceMinistrySlot(slotKey: string) {
                 <span className="rounded-full border border-[var(--ok)] bg-[var(--ok-soft)] px-3 py-1 text-[var(--ok)]">
                   Confirmado
                 </span>
-                <span className="rounded-full border border-[var(--accent)] bg-[var(--accent-soft)] px-3 py-1 text-[var(--accent)]">
+                <span className="rounded-full border border-[var(--danger)] bg-[var(--danger-soft)] px-3 py-1 text-[var(--danger)]">
                   Ocupado
                 </span>
               </div>
@@ -983,7 +983,7 @@ function SlotPicker({
               className="rounded-2xl bg-[var(--panel)] px-3 py-2 text-center text-sm font-semibold text-[var(--ink)]"
             >
               <span className="block">{formatDatePtBr(day)}</span>
-              <span className="mt-1 block text-[10px] font-semibold tracking-[0.18em] text-[var(--ink-soft)]">
+              <span className="mt-1 block text-[10px] font-semibold tracking-[0.12em] text-[var(--ink-soft)]">
                 {formatWeekdayShortPtBr(day)}
               </span>
             </div>
@@ -1007,7 +1007,7 @@ function SlotPicker({
                     className={clsx(
                       "min-h-20 rounded-2xl border px-3 py-2 text-left text-sm transition",
                       reservation?.isBlocked &&
-                        "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]",
+                        "border-[var(--danger)] bg-[var(--danger-soft)] text-[var(--danger)]",
                       reservation?.status === "pending" &&
                         !reservation?.isBlocked &&
                         "border-[var(--warning)] bg-[var(--warning-soft)] text-[var(--warning)]",
@@ -1029,7 +1029,7 @@ function SlotPicker({
                     {reservation ? (
                       <>
                         <span className="block font-semibold">{getReservationLabel(reservation)}</span>
-                        <span className="mt-1 block text-xs uppercase tracking-[0.16em]">
+                        <span className="mt-1 block text-[11px] tracking-[0.04em]">
                           {getReservationStatusLabel(reservation)}
                         </span>
                       </>
@@ -1074,7 +1074,7 @@ function SlotOverview({
             className="rounded-2xl bg-[var(--panel)] px-3 py-2 text-center text-sm font-semibold text-[var(--ink)]"
           >
             <span className="block">{formatDatePtBr(day)}</span>
-            <span className="mt-1 block text-[10px] font-semibold tracking-[0.18em] text-[var(--ink-soft)]">
+            <span className="mt-1 block text-[10px] font-semibold tracking-[0.12em] text-[var(--ink-soft)]">
               {formatWeekdayShortPtBr(day)}
             </span>
           </div>
@@ -1104,7 +1104,7 @@ function SlotOverview({
                   className={clsx(
                     "min-h-20 rounded-2xl border px-3 py-2 text-left text-sm transition",
                     reservation?.isBlocked &&
-                      "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]",
+                      "border-[var(--danger)] bg-[var(--danger-soft)] text-[var(--danger)]",
                     reservation?.status === "pending" &&
                       !reservation?.isBlocked &&
                       "border-[var(--warning)] bg-[var(--warning-soft)] text-[var(--warning)]",
@@ -1125,7 +1125,7 @@ function SlotOverview({
                       <span className="block text-sm font-semibold leading-5">
                         {getReservationLabel(reservation)}
                       </span>
-                      <span className="mt-1 block text-[11px] uppercase tracking-[0.12em] leading-4">
+                      <span className="mt-1 block text-[11px] tracking-[0.04em] leading-4">
                         {getReservationStatusLabel(reservation)}
                       </span>
                       {isAdmin && !reservation.isBlocked ? (
@@ -1182,7 +1182,7 @@ function ExportSlotOverview({
             className="rounded-2xl bg-[var(--panel)] px-3 py-2 text-center text-sm font-semibold text-[var(--ink)]"
           >
             <span className="block">{formatDatePtBr(day)}</span>
-            <span className="mt-1 block text-[10px] font-semibold tracking-[0.18em] text-[var(--ink-soft)]">
+            <span className="mt-1 block text-[10px] font-semibold tracking-[0.12em] text-[var(--ink-soft)]">
               {formatWeekdayShortPtBr(day)}
             </span>
           </div>
@@ -1203,7 +1203,7 @@ function ExportSlotOverview({
                   className={clsx(
                     "min-h-20 rounded-2xl border px-3 py-2 text-left text-sm",
                     reservation?.isBlocked &&
-                      "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]",
+                      "border-[var(--danger)] bg-[var(--danger-soft)] text-[var(--danger)]",
                     reservation?.status === "pending" &&
                       !reservation?.isBlocked &&
                       "border-[var(--warning)] bg-[var(--warning-soft)] text-[var(--warning)]",
@@ -1219,7 +1219,7 @@ function ExportSlotOverview({
                       <span className="block text-sm font-semibold leading-5">
                         {getReservationLabel(reservation)}
                       </span>
-                      <span className="mt-1 block text-[11px] uppercase tracking-[0.12em] leading-4">
+                      <span className="mt-1 block text-[11px] tracking-[0.04em] leading-4">
                         {getReservationStatusLabel(reservation)}
                       </span>
                     </>

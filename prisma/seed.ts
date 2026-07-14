@@ -5,7 +5,6 @@ import { hashPassword } from "../lib/password";
 const prisma = new PrismaClient();
 
 const ministrySeeds = [
-  { name: "Louvor", username: "louvor" },
   { name: "Teatro", username: "teatro" },
   { name: "Acroarte", username: "acroarte" },
   { name: "Apoio Técnico", username: "apoio_tecnico" },
@@ -55,6 +54,27 @@ async function main() {
       passwordHash: hashPassword("admin123"),
       whatsappPhone: null,
       role: "admin",
+    },
+  });
+
+  await prisma.user.deleteMany({
+    where: {
+      OR: [
+        { id: "seed-ministry-user-louvor" },
+        { username: "louvor" },
+      ],
+    },
+  });
+
+  await prisma.ministry.deleteMany({
+    where: {
+      name: "Louvor",
+      users: {
+        none: {},
+      },
+      bookingRequests: {
+        none: {},
+      },
     },
   });
 

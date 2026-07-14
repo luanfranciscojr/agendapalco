@@ -75,7 +75,6 @@ pnpm dev
 - Admin: `Coordenação do Palco`
 - Cada ministério do seed recebe um usuário com senha igual ao próprio `username`
 - Exemplos:
-  - `louvor / louvor`
   - `teatro / teatro`
   - `acroarte / acroarte`
   - `apoio_tecnico / apoio_tecnico`

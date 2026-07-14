@@ -9,7 +9,7 @@ const ministrySeeds = [
   { name: "Teatro", username: "teatro" },
   { name: "Acroarte", username: "acroarte" },
   { name: "Apoio Técnico", username: "apoio_tecnico" },
-  { name: "Balé", username: "ballet" },
+  { name: "Balé", username: "bale" },
   { name: "Dança 1", username: "danca_1" },
   { name: "DNA", username: "dna" },
   { name: "Fantoche", username: "fantoche" },

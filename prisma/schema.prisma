@@ -1,0 +1,105 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "darwin"]
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ministry
+  admin
+}
+
+enum BookingStatus {
+  pending
+  partially_approved
+  approved
+  rejected
+  cancelled
+}
+
+enum BookingOrigin {
+  ministry_request
+  admin_created
+}
+
+model User {
+  id           String    @id @default(cuid())
+  name         String
+  username     String    @unique
+  passwordHash String
+  whatsappPhone String?
+  role         UserRole
+  ministryId   String?
+  ministry     Ministry? @relation(fields: [ministryId], references: [id])
+  sessions     Session[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model Ministry {
+  id              String           @id @default(cuid())
+  name            String           @unique
+  users           User[]
+  bookingRequests BookingRequest[]
+}
+
+model SystemConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model BookingRequest {
+  id              String         @id @default(cuid())
+  ministryId      String
+  ministry        Ministry       @relation(fields: [ministryId], references: [id])
+  requestedByName String
+  origin          BookingOrigin
+  status          BookingStatus
+  weekStart       DateTime
+  reviewNote      String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  requestedSlots  RequestedSlot[]
+  reservedSlots   ReservedSlot[]
+
+  @@index([ministryId, weekStart, status])
+}
+
+model RequestedSlot {
+  id               String         @id @default(cuid())
+  bookingRequestId String
+  bookingRequest   BookingRequest @relation(fields: [bookingRequestId], references: [id], onDelete: Cascade)
+  slotDate         DateTime
+  hour             Int
+
+  @@unique([bookingRequestId, slotDate, hour])
+  @@index([slotDate, hour])
+}
+
+model ReservedSlot {
+  id               String         @id @default(cuid())
+  bookingRequestId String
+  bookingRequest   BookingRequest @relation(fields: [bookingRequestId], references: [id], onDelete: Cascade)
+  slotDate         DateTime
+  hour             Int
+
+  @@unique([slotDate, hour])
+  @@index([bookingRequestId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId, expiresAt])
+}

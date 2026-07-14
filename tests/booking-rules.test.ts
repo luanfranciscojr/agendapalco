@@ -7,7 +7,7 @@ import {
   validateSlotsInCurrentWeek,
   validateWeekStartFor,
 } from "@/lib/rules";
-import { getCurrentWeekContext } from "@/lib/time";
+import { getCurrentWeekContext, getTodayInTimeZone } from "@/lib/time";
 
 describe("booking rules", () => {
   it("blocks a second weekly request once the limit is reached", () => {
@@ -39,5 +39,20 @@ describe("booking rules", () => {
     expect(
       validateSlotsInCurrentWeek(["2026-07-25T19:00"], new Date("2026-07-13T12:00:00Z")),
     ).toBe(false);
+  });
+
+  it("uses America/Manaus to resolve the current day", () => {
+    expect(getTodayInTimeZone(new Date("2026-07-13T02:30:00Z"))).toBe("2026-07-12");
+    expect(getTodayInTimeZone(new Date("2026-07-13T05:30:00Z"))).toBe("2026-07-13");
+  });
+
+  it("turns the week over at midnight on Sunday in Manaus", () => {
+    const saturdayNight = getCurrentWeekContext(new Date("2026-07-19T03:59:00Z"));
+    const sundayMidnight = getCurrentWeekContext(new Date("2026-07-19T04:00:00Z"));
+
+    expect(saturdayNight.today).toBe("2026-07-18");
+    expect(saturdayNight.weekStart).toBe("2026-07-12");
+    expect(sundayMidnight.today).toBe("2026-07-19");
+    expect(sundayMidnight.weekStart).toBe("2026-07-19");
   });
 });

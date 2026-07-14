@@ -147,6 +147,25 @@ function replaceMinistrySlot(slotKey: string) {
   setSelectedSlots((current) => (current[0] === slotKey ? [] : [slotKey]));
 }
 
+  async function buildWeekImageFile() {
+    if (!weeklyCalendarRef.current) {
+      throw new Error("Não foi possível localizar o calendário para exportar.");
+    }
+
+    const dataUrl = await toPng(weeklyCalendarRef.current, {
+      cacheBust: true,
+      pixelRatio: 2,
+      backgroundColor: "#f7f1e7",
+    });
+
+    const response = await fetch(dataUrl);
+    const blob = await response.blob();
+
+    return new File([blob], `agenda-palco-semana-${data.weekStart}.png`, {
+      type: "image/png",
+    });
+  }
+
   function handleCreateRequest(mode: "ministry" | "admin") {
     startTransition(async () => {
       const submissionSlotKeys =
@@ -284,8 +303,34 @@ function replaceMinistrySlot(slotKey: string) {
   }
 
   async function handleExportWeekImage() {
-    if (!weeklyCalendarRef.current) {
-      setFeedback("Não foi possível localizar o calendário para exportar.");
+    try {
+      setIsExportingImage(true);
+      setFeedback(null);
+      const imageFile = await buildWeekImageFile();
+      const dataUrl = URL.createObjectURL(imageFile);
+
+      const link = document.createElement("a");
+      link.download = imageFile.name;
+      link.href = dataUrl;
+      link.click();
+      URL.revokeObjectURL(dataUrl);
+
+      setFeedback("Imagem da semana gerada.");
+    } catch (error) {
+      setFeedback(
+        error instanceof Error ? error.message : "Falha ao gerar imagem da semana.",
+      );
+    } finally {
+      setIsExportingImage(false);
+    }
+  }
+
+  async function handleShareWeekImage() {
+    if (
+      typeof navigator === "undefined" ||
+      typeof navigator.share !== "function"
+    ) {
+      setFeedback("O compartilhamento não está disponível neste aparelho.");
       return;
     }
 
@@ -293,21 +338,30 @@ function replaceMinistrySlot(slotKey: string) {
       setIsExportingImage(true);
       setFeedback(null);
 
-      const dataUrl = await toPng(weeklyCalendarRef.current, {
-        cacheBust: true,
-        pixelRatio: 2,
-        backgroundColor: "#f7f1e7",
-      });
+      const imageFile = await buildWeekImageFile();
+      const shareData: ShareData = {
+        title: "Agenda do Palco",
+        text: `Agenda do palco - semana de ${formatDateFullPtBr(data.weekStart)}`,
+        files: [imageFile],
+      };
 
-      const link = document.createElement("a");
-      link.download = `agenda-palco-semana-${data.weekStart}.png`;
-      link.href = dataUrl;
-      link.click();
+      if (
+        typeof navigator.canShare === "function" &&
+        !navigator.canShare({ files: [imageFile] })
+      ) {
+        throw new Error("Este aparelho não aceita compartilhar a imagem diretamente.");
+      }
 
-      setFeedback("Imagem da semana gerada.");
+      await navigator.share(shareData);
+      setFeedback("Imagem pronta para compartilhamento.");
     } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        setFeedback("Compartilhamento cancelado.");
+        return;
+      }
+
       setFeedback(
-        error instanceof Error ? error.message : "Falha ao gerar imagem da semana.",
+        error instanceof Error ? error.message : "Falha ao compartilhar imagem da semana.",
       );
     } finally {
       setIsExportingImage(false);
@@ -578,7 +632,15 @@ function replaceMinistrySlot(slotKey: string) {
         eyebrow="Mapa semanal"
         title="Calendário"
       >
-        <div className="flex justify-end">
+        <div className="flex flex-wrap justify-end gap-3">
+          <button
+            type="button"
+            disabled={isExportingImage}
+            onClick={handleShareWeekImage}
+            className="button-secondary"
+          >
+            {isExportingImage ? "Preparando..." : "Compartilhar semana"}
+          </button>
           <button
             type="button"
             disabled={isExportingImage}

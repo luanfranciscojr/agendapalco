@@ -4,10 +4,15 @@ import {
   canCreateWeeklyRequest,
   getReviewStatus,
   hasDuplicateSlots,
-  validateSlotsInCurrentWeek,
+  validateSlotsInSelectableWeek,
   validateWeekStartFor,
 } from "@/lib/rules";
-import { getCurrentWeekContext, getTodayInTimeZone } from "@/lib/time";
+import {
+  getCurrentWeekContext,
+  getSelectableWeekContext,
+  getTodayInTimeZone,
+  isSlotInPast,
+} from "@/lib/time";
 
 describe("booking rules", () => {
   it("blocks a second weekly request once the limit is reached", () => {
@@ -25,20 +30,44 @@ describe("booking rules", () => {
     expect(hasDuplicateSlots(["2026-07-13T19:00", "2026-07-13T20:00"])).toBe(false);
   });
 
-  it("accepts only the current week in requests and availability", () => {
+  it("accepts the current week and the next eight weeks", () => {
     const week = getCurrentWeekContext(new Date("2026-07-13T12:00:00Z"));
 
     expect(validateWeekStartFor(week.weekStart, new Date("2026-07-13T12:00:00Z"))).toBe(true);
     expect(validateWeekStartFor("2026-07-05", new Date("2026-07-13T12:00:00Z"))).toBe(false);
+    expect(validateWeekStartFor("2026-09-06", new Date("2026-07-13T12:00:00Z"))).toBe(true);
+    expect(validateWeekStartFor("2026-09-13", new Date("2026-07-13T12:00:00Z"))).toBe(false);
     expect(
-      validateSlotsInCurrentWeek([
-        `${week.days[0]}T19:00`,
+      validateSlotsInSelectableWeek([
+        `${week.days[1]}T19:00`,
         `${week.days[3]}T20:00`,
       ], new Date("2026-07-13T12:00:00Z")),
     ).toBe(true);
     expect(
-      validateSlotsInCurrentWeek(["2026-07-25T19:00"], new Date("2026-07-13T12:00:00Z")),
+      validateSlotsInSelectableWeek(
+        ["2026-07-20T19:00", "2026-07-27T19:00"],
+        new Date("2026-07-13T12:00:00Z"),
+      ),
     ).toBe(false);
+  });
+
+  it("builds bounded navigation for selectable weeks", () => {
+    const now = new Date("2026-07-13T12:00:00Z");
+    const current = getSelectableWeekContext(undefined, 8, now);
+    const last = getSelectableWeekContext("2026-09-06", 8, now);
+
+    expect(current?.previousWeekStart).toBeNull();
+    expect(current?.nextWeekStart).toBe("2026-07-19");
+    expect(last?.previousWeekStart).toBe("2026-08-30");
+    expect(last?.nextWeekStart).toBeNull();
+  });
+
+  it("blocks slots that have already started in Manaus", () => {
+    const now = new Date("2026-07-13T23:30:00Z");
+
+    expect(isSlotInPast("2026-07-13", 19, now)).toBe(true);
+    expect(isSlotInPast("2026-07-13", 20, now)).toBe(false);
+    expect(isSlotInPast("2026-07-14", 18, now)).toBe(false);
   });
 
   it("uses America/Manaus to resolve the current day", () => {

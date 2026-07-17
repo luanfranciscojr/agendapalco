@@ -8,6 +8,11 @@ export type WeekContext = {
   days: string[];
 };
 
+export type SelectableWeekContext = WeekContext & {
+  previousWeekStart: string | null;
+  nextWeekStart: string | null;
+};
+
 function formatDateKey(date: Date) {
   return date.toISOString().slice(0, 10);
 }
@@ -47,6 +52,75 @@ export function getCurrentWeekContext(now = new Date()): WeekContext {
   );
 
   return { today, weekStart, days };
+}
+
+export function getWeekContext(weekStart: string, now = new Date()): WeekContext {
+  const weekStartDate = dateKeyToUtcDate(weekStart);
+  const days = Array.from({ length: 7 }, (_, index) =>
+    formatDateKey(addDays(weekStartDate, index)),
+  );
+
+  return { today: getTodayInTimeZone(now), weekStart, days };
+}
+
+export function getWeekStartForDateKey(dateKey: string) {
+  const date = dateKeyToUtcDate(dateKey);
+  const diff = (date.getUTCDay() - WEEK_START_DAY + 7) % 7;
+  return formatDateKey(subDays(date, diff));
+}
+
+export function getSelectableWeekContext(
+  requestedWeekStart: string | undefined,
+  maxFutureWeeks: number,
+  now = new Date(),
+): SelectableWeekContext | null {
+  const current = getCurrentWeekContext(now);
+  const selectedWeekStart = requestedWeekStart ?? current.weekStart;
+  const selectedDate = dateKeyToUtcDate(selectedWeekStart);
+  const currentDate = dateKeyToUtcDate(current.weekStart);
+  const maximumDate = addDays(currentDate, maxFutureWeeks * 7);
+
+  if (
+    Number.isNaN(selectedDate.getTime()) ||
+    selectedWeekStart !== formatDateKey(selectedDate) ||
+    selectedDate.getUTCDay() !== WEEK_START_DAY ||
+    selectedDate < currentDate ||
+    selectedDate > maximumDate
+  ) {
+    return null;
+  }
+
+  return {
+    ...getWeekContext(selectedWeekStart, now),
+    previousWeekStart:
+      selectedDate > currentDate ? formatDateKey(subDays(selectedDate, 7)) : null,
+    nextWeekStart:
+      selectedDate < maximumDate ? formatDateKey(addDays(selectedDate, 7)) : null,
+  };
+}
+
+function getCurrentDateTimeKeyInTimeZone(now = new Date()) {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: APP_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
+  const values = Object.fromEntries(
+    formatter
+      .formatToParts(now)
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value]),
+  );
+
+  return `${values.year}-${values.month}-${values.day}T${values.hour}:${values.minute}`;
+}
+
+export function isSlotInPast(dateKey: string, hour: number, now = new Date()) {
+  return buildSlotKey(dateKey, hour) <= getCurrentDateTimeKeyInTimeZone(now);
 }
 
 export function isDateKeyInCurrentWeek(dateKey: string, now = new Date()) {

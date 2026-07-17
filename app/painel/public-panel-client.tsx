@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { Fragment, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { clsx } from "clsx";
 import { toPng } from "html-to-image";
 
@@ -11,18 +12,33 @@ import {
   hourLabel,
 } from "@/lib/time";
 import type { PublicPanelData } from "@/lib/types";
+import { WeekNavigation } from "@/components/week-navigation";
 
 type Props = {
   data: PublicPanelData;
 };
 
 export function PublicPanelClient({ data }: Props) {
-  const reservationsBySlot = new Map(
-    data.reservations.map((reservation) => [reservation.slotKey, reservation]),
+  const router = useRouter();
+  const reservationsBySlot = useMemo(
+    () =>
+      new Map(
+        data.reservations.map((reservation) => [reservation.slotKey, reservation]),
+      ),
+    [data.reservations],
+  );
+  const unavailableSlotKeys = useMemo(
+    () => new Set(data.unavailableSlotKeys),
+    [data.unavailableSlotKeys],
   );
   const [feedback, setFeedback] = useState<string | null>(null);
   const [isExportingImage, setIsExportingImage] = useState(false);
   const exportRef = useRef<HTMLDivElement | null>(null);
+
+  function handleWeekChange(weekStart: string) {
+    setFeedback(null);
+    router.push(`/painel?semana=${weekStart}`);
+  }
 
   async function buildWeekImageFile() {
     if (!exportRef.current) {
@@ -127,6 +143,14 @@ export function PublicPanelClient({ data }: Props) {
               Consulta pública
             </span>
           </div>
+          <div className="mt-4">
+            <WeekNavigation
+              previousWeekStart={data.previousWeekStart}
+              nextWeekStart={data.nextWeekStart}
+              disabled={isExportingImage}
+              onNavigate={handleWeekChange}
+            />
+          </div>
         </section>
 
         <section className="rounded-[2rem] border border-[var(--line)] bg-white/80 p-5 shadow-[0_18px_50px_rgba(36,31,18,0.08)] backdrop-blur sm:p-6">
@@ -191,6 +215,7 @@ export function PublicPanelClient({ data }: Props) {
                   cells={data.days.map((day) => {
                     const slotKey = `${day}T${String(hour).padStart(2, "0")}:00`;
                     const reservation = reservationsBySlot.get(slotKey);
+                    const unavailable = unavailableSlotKeys.has(slotKey);
 
                     return (
                       <div
@@ -206,7 +231,10 @@ export function PublicPanelClient({ data }: Props) {
                             !reservation.isBlocked &&
                             reservation.status !== "pending" &&
                             "border-[var(--ok)] bg-[var(--ok-soft)] text-[var(--ok)]",
-                          !reservation && "border-[var(--line)] bg-white text-[var(--ink-soft)]",
+                          !reservation &&
+                            (unavailable
+                              ? "border-[var(--line)] bg-[var(--panel)] text-[var(--ink-soft)] opacity-65"
+                              : "border-[var(--line)] bg-white text-[var(--ink-soft)]"),
                         )}
                       >
                         {reservation ? (
@@ -223,7 +251,9 @@ export function PublicPanelClient({ data }: Props) {
                             </span>
                           </>
                         ) : (
-                          <span className="font-semibold">Livre</span>
+                          <span className="font-semibold">
+                            {unavailable ? "Encerrado" : "Livre"}
+                          </span>
                         )}
                       </div>
                     );
@@ -282,7 +312,7 @@ export function PublicPanelClient({ data }: Props) {
                 ))}
 
                 {data.slotHours.map((hour) => (
-                  <>
+                  <Fragment key={`export-row-${hour}`}>
                     <div
                       key={`export-hour-${hour}`}
                       className="flex items-center rounded-2xl bg-[var(--panel)] px-3 py-3 text-sm font-semibold text-[var(--ink)]"
@@ -292,6 +322,7 @@ export function PublicPanelClient({ data }: Props) {
                     {data.days.map((day) => {
                       const slotKey = `${day}T${String(hour).padStart(2, "0")}:00`;
                       const reservation = reservationsBySlot.get(slotKey);
+                      const unavailable = unavailableSlotKeys.has(slotKey);
 
                       return (
                         <div
@@ -308,7 +339,9 @@ export function PublicPanelClient({ data }: Props) {
                               reservation.status !== "pending" &&
                               "border-[var(--ok)] bg-[var(--ok-soft)] text-[var(--ok)]",
                             !reservation &&
-                              "border-[var(--line)] bg-white text-[var(--ink-soft)]",
+                              (unavailable
+                                ? "border-[var(--line)] bg-[var(--panel)] text-[var(--ink-soft)] opacity-65"
+                                : "border-[var(--line)] bg-white text-[var(--ink-soft)]"),
                           )}
                         >
                           {reservation ? (
@@ -325,12 +358,14 @@ export function PublicPanelClient({ data }: Props) {
                               </span>
                             </>
                           ) : (
-                            <span className="block text-sm font-semibold leading-5">Livre</span>
+                            <span className="block text-sm font-semibold leading-5">
+                              {unavailable ? "Encerrado" : "Livre"}
+                            </span>
                           )}
                         </div>
                       );
                     })}
-                  </>
+                  </Fragment>
                 ))}
               </div>
             </div>

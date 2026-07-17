@@ -14,6 +14,7 @@ import { clsx } from "clsx";
 import { toPng } from "html-to-image";
 
 import { BLOCKED_DIRECT_BOOKING_ID } from "@/lib/constants";
+import { WeekNavigation } from "@/components/week-navigation";
 import {
   formatDatePtBr,
   formatDateFullPtBr,
@@ -22,6 +23,7 @@ import {
   slotDateTimeLabel,
 } from "@/lib/time";
 import type { DashboardData } from "@/lib/types";
+import { buildWeeklyUsageReport } from "@/lib/usage-report";
 
 type Props = {
   data: DashboardData;
@@ -111,6 +113,14 @@ export function StageSchedulerApp({ data }: Props) {
       ),
     [data.reservations],
   );
+  const unavailableSlotKeys = useMemo(
+    () => new Set(data.unavailableSlotKeys),
+    [data.unavailableSlotKeys],
+  );
+  const weeklyUsageReport = useMemo(
+    () => buildWeeklyUsageReport(data.requests),
+    [data.requests],
+  );
 
   const activeRequestsForMinistry = useMemo(
     () =>
@@ -160,6 +170,15 @@ export function StageSchedulerApp({ data }: Props) {
 function replaceMinistrySlot(slotKey: string) {
   setSelectedSlots((current) => (current[0] === slotKey ? [] : [slotKey]));
 }
+
+  function handleWeekChange(weekStart: string) {
+    setSelectedSlots([]);
+    setFeedback(null);
+    setPendingDialogRequestId(null);
+    setDirectBookingSlotKey(null);
+    setManageReservationRequestId(null);
+    router.push(`/?semana=${weekStart}`);
+  }
 
   async function buildWeekImageFile() {
     if (!weekImageRef.current) {
@@ -463,6 +482,15 @@ function replaceMinistrySlot(slotKey: string) {
             {feedback}
           </p>
         ) : null}
+
+        <div className="mt-4">
+          <WeekNavigation
+            previousWeekStart={data.previousWeekStart}
+            nextWeekStart={data.nextWeekStart}
+            disabled={isPending}
+            onNavigate={handleWeekChange}
+          />
+        </div>
       </section>
 
       {isPasswordDialogOpen ? (
@@ -572,6 +600,7 @@ function replaceMinistrySlot(slotKey: string) {
                 days={data.days}
                 slotHours={data.slotHours}
                 reservationsBySlot={reservationsBySlot}
+                unavailableSlotKeys={unavailableSlotKeys}
                 selectedSlots={selectedSlots}
                 disabled={isPending || weeklyAttemptConsumed}
                 onToggle={replaceMinistrySlot}
@@ -638,6 +667,7 @@ function replaceMinistrySlot(slotKey: string) {
                 </button>
               </div>
             </Panel>
+            <AdminUsageReport report={weeklyUsageReport} />
           </>
         )}
       </div>
@@ -693,6 +723,7 @@ function replaceMinistrySlot(slotKey: string) {
             days={data.days}
             slotHours={data.slotHours}
             reservationsBySlot={reservationsBySlot}
+            unavailableSlotKeys={unavailableSlotKeys}
             isAdmin={isAdmin}
             onEmptySlotClick={(slotKey) => {
               setDirectBookingSlotKey(slotKey);
@@ -747,6 +778,7 @@ function replaceMinistrySlot(slotKey: string) {
                 days={data.days}
                 slotHours={data.slotHours}
                 reservationsBySlot={reservationsBySlot}
+                unavailableSlotKeys={unavailableSlotKeys}
               />
             </div>
           </div>
@@ -812,6 +844,55 @@ function replaceMinistrySlot(slotKey: string) {
           onCancel={() => handleCancelRequest(managedReservation.id)}
         />
       ) : null}
+    </div>
+  );
+}
+
+function AdminUsageReport({
+  report,
+}: {
+  report: ReturnType<typeof buildWeeklyUsageReport>;
+}) {
+  return (
+    <Panel eyebrow="Relatório da semana" title="Uso do palco">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        <ReportMetric value={report.ministryCount} label="Ministérios" />
+        <ReportMetric value={report.bookingCount} label="Agendamentos" />
+        <ReportMetric value={report.hourCount} label="Horas" />
+      </div>
+
+      {report.ministries.length ? (
+        <div className="grid gap-2">
+          {report.ministries.map((ministry) => (
+            <div
+              key={ministry.ministryId}
+              className="flex items-center justify-between gap-3 rounded-[1.1rem] border border-[var(--line)] bg-white px-4 py-3"
+            >
+              <span className="min-w-0 truncate text-sm font-semibold text-[var(--ink)]">
+                {ministry.ministryName}
+              </span>
+              <span className="shrink-0 text-xs font-semibold text-[var(--ink-soft)]">
+                {ministry.hourCount} {ministry.hourCount === 1 ? "hora" : "horas"}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <EmptyState text="Nenhum uso confirmado nesta semana." />
+      )}
+    </Panel>
+  );
+}
+
+function ReportMetric({ value, label }: { value: number; label: string }) {
+  return (
+    <div className="rounded-[1.25rem] bg-[var(--panel)] px-2 py-4 text-center sm:px-4">
+      <strong className="block font-display text-3xl text-[var(--accent-strong)]">
+        {value}
+      </strong>
+      <span className="mt-1 block text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--ink-soft)] sm:text-xs">
+        {label}
+      </span>
     </div>
   );
 }
@@ -951,6 +1032,7 @@ function SlotPicker({
   days,
   slotHours,
   reservationsBySlot,
+  unavailableSlotKeys,
   selectedSlots,
   disabled = false,
   onToggle,
@@ -959,6 +1041,7 @@ function SlotPicker({
   days: string[];
   slotHours: number[];
   reservationsBySlot: Map<string, DashboardData["reservations"][number]>;
+  unavailableSlotKeys: Set<string>;
   selectedSlots: string[];
   disabled?: boolean;
   onToggle: (slotKey: string) => void;
@@ -997,12 +1080,13 @@ function SlotPicker({
                 const slotKey = `${day}T${String(hour).padStart(2, "0")}:00`;
                 const reservation = reservationsBySlot.get(slotKey);
                 const selected = selectedSlots.includes(slotKey);
+                const unavailable = unavailableSlotKeys.has(slotKey);
 
                 return (
                   <button
                     key={slotKey}
                     type="button"
-                    disabled={Boolean(reservation) || disabled}
+                    disabled={Boolean(reservation) || unavailable || disabled}
                     onClick={() => onToggle(slotKey)}
                     className={clsx(
                       "min-h-20 rounded-2xl border px-3 py-2 text-left text-sm transition",
@@ -1024,6 +1108,9 @@ function SlotPicker({
                       disabled &&
                         !reservation &&
                         "cursor-not-allowed opacity-60 hover:border-[var(--line)] hover:bg-white",
+                      unavailable &&
+                        !reservation &&
+                        "cursor-not-allowed border-[var(--line)] bg-[var(--panel)] text-[var(--ink-soft)] opacity-65",
                     )}
                   >
                     {reservation ? (
@@ -1035,7 +1122,7 @@ function SlotPicker({
                       </>
                     ) : (
                       <span className="font-semibold">
-                        {selected ? "Selecionado" : "Livre"}
+                        {unavailable ? "Encerrado" : selected ? "Selecionado" : "Livre"}
                       </span>
                     )}
                   </button>
@@ -1053,6 +1140,7 @@ function SlotOverview({
   days,
   slotHours,
   reservationsBySlot,
+  unavailableSlotKeys,
   isAdmin,
   onEmptySlotClick,
   onReservedSlotClick,
@@ -1060,6 +1148,7 @@ function SlotOverview({
   days: string[];
   slotHours: number[];
   reservationsBySlot: Map<string, DashboardData["reservations"][number]>;
+  unavailableSlotKeys: Set<string>;
   isAdmin: boolean;
   onEmptySlotClick: (slotKey: string) => void;
   onReservedSlotClick: (requestId: string) => void;
@@ -1087,12 +1176,13 @@ function SlotOverview({
             {days.map((day) => {
               const slotKey = `${day}T${String(hour).padStart(2, "0")}:00`;
               const reservation = reservationsBySlot.get(slotKey);
+              const unavailable = unavailableSlotKeys.has(slotKey);
 
               return (
                 <button
                   key={`${slotKey}-overview`}
                   type="button"
-                  disabled={!isAdmin && !reservation}
+                  disabled={(!isAdmin && !reservation) || (!reservation && unavailable)}
                   onClick={() => {
                     if (!reservation && isAdmin) {
                       onEmptySlotClick(slotKey);
@@ -1118,6 +1208,9 @@ function SlotOverview({
                     !reservation &&
                       !isAdmin &&
                       "border-[var(--line)] bg-white text-[var(--ink-soft)]",
+                    !reservation &&
+                      unavailable &&
+                      "cursor-not-allowed border-solid border-[var(--line)] bg-[var(--panel)] text-[var(--ink-soft)] opacity-65 hover:translate-y-0 hover:bg-[var(--panel)]",
                   )}
                 >
                   {reservation ? (
@@ -1144,9 +1237,9 @@ function SlotOverview({
                   ) : (
                     <>
                       <span className="block text-sm font-semibold leading-5">
-                        {isAdmin ? "Agendar direto" : "Livre"}
+                        {unavailable ? "Encerrado" : isAdmin ? "Agendar direto" : "Livre"}
                       </span>
-                      {isAdmin ? (
+                      {isAdmin && !unavailable ? (
                         <span className="mt-1 block text-[11px] leading-4 text-current/80">
                           Toque para abrir
                         </span>
@@ -1167,10 +1260,12 @@ function ExportSlotOverview({
   days,
   slotHours,
   reservationsBySlot,
+  unavailableSlotKeys,
 }: {
   days: string[];
   slotHours: number[];
   reservationsBySlot: Map<string, DashboardData["reservations"][number]>;
+  unavailableSlotKeys: Set<string>;
 }) {
   return (
     <div className="grid gap-2">
@@ -1196,6 +1291,7 @@ function ExportSlotOverview({
             {days.map((day) => {
               const slotKey = `${day}T${String(hour).padStart(2, "0")}:00`;
               const reservation = reservationsBySlot.get(slotKey);
+              const unavailable = unavailableSlotKeys.has(slotKey);
 
               return (
                 <div
@@ -1211,7 +1307,10 @@ function ExportSlotOverview({
                       !reservation.isBlocked &&
                       reservation.status !== "pending" &&
                       "border-[var(--ok)] bg-[var(--ok-soft)] text-[var(--ok)]",
-                    !reservation && "border-[var(--line)] bg-white text-[var(--ink-soft)]",
+                    !reservation &&
+                      (unavailable
+                        ? "border-[var(--line)] bg-[var(--panel)] text-[var(--ink-soft)] opacity-65"
+                        : "border-[var(--line)] bg-white text-[var(--ink-soft)]"),
                   )}
                 >
                   {reservation ? (
@@ -1224,7 +1323,9 @@ function ExportSlotOverview({
                       </span>
                     </>
                   ) : (
-                    <span className="block text-sm font-semibold leading-5">Livre</span>
+                    <span className="block text-sm font-semibold leading-5">
+                      {unavailable ? "Encerrado" : "Livre"}
+                    </span>
                   )}
                 </div>
               );

@@ -5,16 +5,20 @@ import { getCurrentUser } from "@/lib/auth";
 import { createBookingRequest, getDashboardData, AppError } from "@/lib/service";
 import { createBookingRequestSchema } from "@/lib/validators";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const currentUser = await getCurrentUser();
     if (!currentUser) {
       return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
     }
 
-    const data = await getDashboardData(currentUser);
+    const weekStart = new URL(request.url).searchParams.get("weekStart") ?? undefined;
+    const data = await getDashboardData(currentUser, weekStart);
     return NextResponse.json(data.requests);
-  } catch {
+  } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     return NextResponse.json(
       { error: "Falha ao carregar pedidos." },
       { status: 500 },

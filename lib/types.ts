@@ -32,6 +32,9 @@ export type DashboardData = {
   weekStart: string;
   today: string;
   days: string[];
+  previousWeekStart: string | null;
+  nextWeekStart: string | null;
+  unavailableSlotKeys: string[];
   slotHours: number[];
   maxRequestsPerMinistryPerWeek: number;
   ministries: { id: string; name: string }[];
@@ -43,6 +46,9 @@ export type PublicPanelData = {
   weekStart: string;
   today: string;
   days: string[];
+  previousWeekStart: string | null;
+  nextWeekStart: string | null;
+  unavailableSlotKeys: string[];
   slotHours: number[];
   reservations: SlotReservation[];
 };

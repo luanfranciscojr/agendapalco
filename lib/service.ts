@@ -12,6 +12,7 @@ import {
   BLOCKED_PUBLIC_LABEL,
   CONFIG_KEY_MAX_REQUESTS,
   DEFAULT_MAX_REQUESTS_PER_WEEK,
+  MAX_FUTURE_WEEKS,
   SLOT_HOURS,
 } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
@@ -21,10 +22,17 @@ import {
   canCreateWeeklyRequest,
   getReviewStatus,
   hasDuplicateSlots,
-  validateSlotsInCurrentWeek,
+  validateSlotsInSelectableWeek,
   validateWeekStart,
 } from "@/lib/rules";
-import { dateKeyToUtcDate, getCurrentWeekContext, parseSlotKey, buildSlotKey } from "@/lib/time";
+import {
+  buildSlotKey,
+  dateKeyToUtcDate,
+  getSelectableWeekContext,
+  getWeekStartForDateKey,
+  isSlotInPast,
+  parseSlotKey,
+} from "@/lib/time";
 import type { DashboardData, PublicPanelData } from "@/lib/types";
 import { validateHour } from "@/lib/validators";
 import { parsePublicReviewToken } from "@/lib/public-review";
@@ -97,8 +105,11 @@ async function getOrCreateBlockedMinistry(
 }
 
 function getWeekDatesOrThrow(slotKeys: string[]) {
-  if (!slotKeys.length || !validateSlotsInCurrentWeek(slotKeys)) {
-    throw new AppError("Somente a semana atual pode ser usada.", 422);
+  if (!slotKeys.length || !validateSlotsInSelectableWeek(slotKeys)) {
+    throw new AppError(
+      "Escolha um horário entre a semana atual e as próximas 8 semanas.",
+      422,
+    );
   }
 
   if (hasDuplicateSlots(slotKeys)) {
@@ -109,7 +120,7 @@ function getWeekDatesOrThrow(slotKeys: string[]) {
   if (!parsed.every(({ hour }) => validateHour(hour))) {
     throw new AppError("Use apenas blocos de 1 hora dentro da agenda configurada.", 422);
   }
-  const weekStart = getCurrentWeekContext().weekStart;
+  const weekStart = getWeekStartForDateKey(parsed[0].dateKey);
 
   return {
     weekStart,
@@ -345,8 +356,34 @@ function buildPendingAdminNotifications(
   });
 }
 
-export async function getDashboardData(currentUser: AuthUser): Promise<DashboardData> {
-  const { weekStart, today, days } = getCurrentWeekContext();
+function getRequestedWeekOrThrow(requestedWeekStart?: string) {
+  const context = getSelectableWeekContext(
+    requestedWeekStart,
+    MAX_FUTURE_WEEKS,
+  );
+  if (!context) {
+    throw new AppError(
+      "A semana deve estar entre a atual e as próximas 8 semanas.",
+      422,
+    );
+  }
+  return context;
+}
+
+function getUnavailableSlotKeys(days: string[]) {
+  return days.flatMap((day) =>
+    SLOT_HOURS.filter((hour) => isSlotInPast(day, hour)).map((hour) =>
+      buildSlotKey(day, hour),
+    ),
+  );
+}
+
+export async function getDashboardData(
+  currentUser: AuthUser,
+  requestedWeekStart?: string,
+): Promise<DashboardData> {
+  const { weekStart, today, days, previousWeekStart, nextWeekStart } =
+    getRequestedWeekOrThrow(requestedWeekStart);
   await prisma.$executeRaw`
     UPDATE BookingRequest br
     LEFT JOIN ReservedSlot rs ON rs.bookingRequestId = br.id
@@ -404,6 +441,9 @@ export async function getDashboardData(currentUser: AuthUser): Promise<Dashboard
     weekStart,
     today,
     days,
+    previousWeekStart,
+    nextWeekStart,
+    unavailableSlotKeys: getUnavailableSlotKeys(days),
     slotHours: SLOT_HOURS,
     maxRequestsPerMinistryPerWeek: Number(
       config?.value ?? DEFAULT_MAX_REQUESTS_PER_WEEK,
@@ -431,8 +471,11 @@ export async function getDashboardData(currentUser: AuthUser): Promise<Dashboard
   };
 }
 
-export async function getPublicPanelData(): Promise<PublicPanelData> {
-  const { weekStart, today, days } = getCurrentWeekContext();
+export async function getPublicPanelData(
+  requestedWeekStart?: string,
+): Promise<PublicPanelData> {
+  const { weekStart, today, days, previousWeekStart, nextWeekStart } =
+    getRequestedWeekOrThrow(requestedWeekStart);
   const reservedSlots = await prisma.reservedSlot.findMany({
     where: {
       slotDate: {
@@ -454,6 +497,9 @@ export async function getPublicPanelData(): Promise<PublicPanelData> {
     weekStart,
     today,
     days,
+    previousWeekStart,
+    nextWeekStart,
+    unavailableSlotKeys: getUnavailableSlotKeys(days),
     slotHours: SLOT_HOURS,
     reservations: reservedSlots.map((slot) => ({
       slotKey: buildSlotKey(slot.slotDate.toISOString().slice(0, 10), slot.hour),
@@ -473,7 +519,10 @@ export async function getPublicPanelData(): Promise<PublicPanelData> {
 
 export async function getAvailability(weekStart?: string) {
   if (weekStart && !validateWeekStart(weekStart)) {
-    throw new AppError("Somente a semana atual pode ser consultada.", 422);
+    throw new AppError(
+      "A semana deve estar entre a atual e as próximas 8 semanas.",
+      422,
+    );
   }
 
   throw new AppError("Use a agenda autenticada para consultar disponibilidade.", 401);
@@ -679,8 +728,14 @@ export async function reviewBookingRequest(requestId: string, input: ReviewBooki
     );
     const approvedSet = new Set(input.approvedSlotKeys);
 
-    if (!validateSlotsInCurrentWeek(input.approvedSlotKeys)) {
-      throw new AppError("Aprovação fora da semana atual não é permitida.", 422);
+    if (
+      input.approvedSlotKeys.length &&
+      input.approvedSlotKeys.some((slotKey) => {
+        const { dateKey, hour } = parseSlotKey(slotKey);
+        return isSlotInPast(dateKey, hour);
+      })
+    ) {
+      throw new AppError("Não é possível aprovar um horário que já passou.", 422);
     }
 
     for (const slotKey of input.approvedSlotKeys) {

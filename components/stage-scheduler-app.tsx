@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import {
   Fragment,
   type ReactNode,
@@ -23,7 +24,6 @@ import {
   slotDateTimeLabel,
 } from "@/lib/time";
 import type { DashboardData } from "@/lib/types";
-import { buildWeeklyUsageReport } from "@/lib/usage-report";
 
 type Props = {
   data: DashboardData;
@@ -116,10 +116,6 @@ export function StageSchedulerApp({ data }: Props) {
   const unavailableSlotKeys = useMemo(
     () => new Set(data.unavailableSlotKeys),
     [data.unavailableSlotKeys],
-  );
-  const weeklyUsageReport = useMemo(
-    () => buildWeeklyUsageReport(data.requests),
-    [data.requests],
   );
 
   const activeRequestsForMinistry = useMemo(
@@ -432,6 +428,11 @@ function replaceMinistrySlot(slotKey: string) {
                 {isAdmin ? "Coordenação" : currentUser.ministryName}
               </p>
             </div>
+            {isAdmin ? (
+              <Link href="/relatorio" className="button-primary">
+                Relatório
+              </Link>
+            ) : null}
             <button type="button" onClick={handleLogout} className="button-secondary">
               Sair
             </button>
@@ -483,14 +484,6 @@ function replaceMinistrySlot(slotKey: string) {
           </p>
         ) : null}
 
-        <div className="mt-4">
-          <WeekNavigation
-            previousWeekStart={data.previousWeekStart}
-            nextWeekStart={data.nextWeekStart}
-            disabled={isPending}
-            onNavigate={handleWeekChange}
-          />
-        </div>
       </section>
 
       {isPasswordDialogOpen ? (
@@ -667,7 +660,6 @@ function replaceMinistrySlot(slotKey: string) {
                 </button>
               </div>
             </Panel>
-            <AdminUsageReport report={weeklyUsageReport} />
           </>
         )}
       </div>
@@ -676,6 +668,12 @@ function replaceMinistrySlot(slotKey: string) {
         eyebrow="Mapa semanal"
         title="Calendário"
       >
+        <WeekNavigation
+          previousWeekStart={data.previousWeekStart}
+          nextWeekStart={data.nextWeekStart}
+          disabled={isPending}
+          onNavigate={handleWeekChange}
+        />
         <div className="flex flex-wrap justify-end gap-3">
           <button
             type="button"
@@ -844,55 +842,6 @@ function replaceMinistrySlot(slotKey: string) {
           onCancel={() => handleCancelRequest(managedReservation.id)}
         />
       ) : null}
-    </div>
-  );
-}
-
-function AdminUsageReport({
-  report,
-}: {
-  report: ReturnType<typeof buildWeeklyUsageReport>;
-}) {
-  return (
-    <Panel eyebrow="Relatório da semana" title="Uso do palco">
-      <div className="grid grid-cols-3 gap-2 sm:gap-3">
-        <ReportMetric value={report.ministryCount} label="Ministérios" />
-        <ReportMetric value={report.bookingCount} label="Agendamentos" />
-        <ReportMetric value={report.hourCount} label="Horas" />
-      </div>
-
-      {report.ministries.length ? (
-        <div className="grid gap-2">
-          {report.ministries.map((ministry) => (
-            <div
-              key={ministry.ministryId}
-              className="flex items-center justify-between gap-3 rounded-[1.1rem] border border-[var(--line)] bg-white px-4 py-3"
-            >
-              <span className="min-w-0 truncate text-sm font-semibold text-[var(--ink)]">
-                {ministry.ministryName}
-              </span>
-              <span className="shrink-0 text-xs font-semibold text-[var(--ink-soft)]">
-                {ministry.hourCount} {ministry.hourCount === 1 ? "hora" : "horas"}
-              </span>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <EmptyState text="Nenhum uso confirmado nesta semana." />
-      )}
-    </Panel>
-  );
-}
-
-function ReportMetric({ value, label }: { value: number; label: string }) {
-  return (
-    <div className="rounded-[1.25rem] bg-[var(--panel)] px-2 py-4 text-center sm:px-4">
-      <strong className="block font-display text-3xl text-[var(--accent-strong)]">
-        {value}
-      </strong>
-      <span className="mt-1 block text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--ink-soft)] sm:text-xs">
-        {label}
-      </span>
     </div>
   );
 }

@@ -143,18 +143,16 @@ export function PublicPanelClient({ data }: Props) {
               Consulta pública
             </span>
           </div>
-          <div className="mt-4">
-            <WeekNavigation
-              previousWeekStart={data.previousWeekStart}
-              nextWeekStart={data.nextWeekStart}
-              disabled={isExportingImage}
-              onNavigate={handleWeekChange}
-            />
-          </div>
         </section>
 
         <section className="rounded-[2rem] border border-[var(--line)] bg-white/80 p-5 shadow-[0_18px_50px_rgba(36,31,18,0.08)] backdrop-blur sm:p-6">
-          <div className="flex flex-wrap justify-end gap-3">
+          <WeekNavigation
+            previousWeekStart={data.previousWeekStart}
+            nextWeekStart={data.nextWeekStart}
+            disabled={isExportingImage}
+            onNavigate={handleWeekChange}
+          />
+          <div className="mt-4 flex flex-wrap justify-end gap-3">
             <button
               type="button"
               disabled={isExportingImage}

@@ -37,6 +37,7 @@ import type { DashboardData, PublicPanelData } from "@/lib/types";
 import { validateHour } from "@/lib/validators";
 import { parsePublicReviewToken } from "@/lib/public-review";
 import { sendWhatsAppTemplate } from "@/lib/whatsapp";
+import { buildUsageReport } from "@/lib/usage-report";
 
 export class AppError extends Error {
   constructor(
@@ -515,6 +516,37 @@ export async function getPublicPanelData(
       isBlocked: isBlockedMinistryName(slot.bookingRequest.ministry.name),
     })),
   };
+}
+
+export async function getGeneralUsageReport(filters?: {
+  startDate?: string;
+  endDate?: string;
+}) {
+  const slotDate: Prisma.DateTimeFilter = {};
+  if (filters?.startDate) {
+    slotDate.gte = dateKeyToUtcDate(filters.startDate);
+  }
+  if (filters?.endDate) {
+    slotDate.lte = dateKeyToUtcDate(filters.endDate);
+  }
+
+  const hasDateFilter = Boolean(filters?.startDate || filters?.endDate);
+  const requests = await prisma.bookingRequest.findMany({
+    where: {
+      status: BookingStatus.approved,
+      ministry: { name: { not: BLOCKED_MINISTRY_NAME } },
+      reservedSlots: {
+        some: hasDateFilter ? { slotDate } : {},
+      },
+    },
+    include: {
+      ministry: true,
+      requestedSlots: true,
+      reservedSlots: hasDateFilter ? { where: { slotDate } } : true,
+    },
+  });
+
+  return buildUsageReport(requests.map(mapRequest));
 }
 
 export async function getAvailability(weekStart?: string) {

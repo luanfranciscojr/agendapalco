@@ -7,16 +7,16 @@ export type MinistryUsage = {
   hourCount: number;
 };
 
-export type WeeklyUsageReport = {
+export type UsageReport = {
   ministryCount: number;
   bookingCount: number;
   hourCount: number;
   ministries: MinistryUsage[];
 };
 
-export function buildWeeklyUsageReport(
+export function buildUsageReport(
   requests: DashboardRequest[],
-): WeeklyUsageReport {
+): UsageReport {
   const ministries = new Map<string, MinistryUsage>();
   let bookingCount = 0;
   let hourCount = 0;
@@ -48,8 +48,10 @@ export function buildWeeklyUsageReport(
     });
   }
 
-  const ministryList = [...ministries.values()].sort((first, second) =>
-    first.ministryName.localeCompare(second.ministryName, "pt-BR"),
+  const ministryList = [...ministries.values()].sort(
+    (first, second) =>
+      second.hourCount - first.hourCount ||
+      first.ministryName.localeCompare(second.ministryName, "pt-BR"),
   );
 
   return {

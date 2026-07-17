@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { DashboardRequest } from "@/lib/types";
-import { buildWeeklyUsageReport } from "@/lib/usage-report";
+import { buildUsageReport } from "@/lib/usage-report";
 
 function request(
   overrides: Partial<DashboardRequest> & Pick<DashboardRequest, "id" | "ministryId" | "ministryName">,
@@ -19,9 +19,9 @@ function request(
   };
 }
 
-describe("weekly usage report", () => {
+describe("usage report", () => {
   it("counts each ministry once and totals bookings and hours", () => {
-    const report = buildWeeklyUsageReport([
+    const report = buildUsageReport([
       request({ id: "1", ministryId: "teatro", ministryName: "Teatro" }),
       request({
         id: "2",
@@ -42,7 +42,7 @@ describe("weekly usage report", () => {
   });
 
   it("ignores pending, cancelled, rejected, and administrative blocks", () => {
-    const report = buildWeeklyUsageReport([
+    const report = buildUsageReport([
       request({ id: "1", ministryId: "pending", ministryName: "Pendente", status: "pending" }),
       request({ id: "2", ministryId: "cancelled", ministryName: "Cancelado", status: "cancelled" }),
       request({ id: "3", ministryId: "rejected", ministryName: "Reprovado", status: "rejected" }),

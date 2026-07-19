@@ -524,6 +524,12 @@ function replaceMinistrySlot(slotKey: string) {
               title="Novo agendamento"
               description="Escolha um horário livre."
             >
+              <WeekNavigation
+                previousWeekStart={data.previousWeekStart}
+                nextWeekStart={data.nextWeekStart}
+                disabled={isPending}
+                onNavigate={handleWeekChange}
+              />
               <div className="rounded-[1.5rem] border border-[var(--line)] bg-[var(--panel)] p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
@@ -681,12 +687,14 @@ function replaceMinistrySlot(slotKey: string) {
         eyebrow="Mapa semanal"
         title="Calendário"
       >
-        <WeekNavigation
-          previousWeekStart={data.previousWeekStart}
-          nextWeekStart={data.nextWeekStart}
-          disabled={isPending}
-          onNavigate={handleWeekChange}
-        />
+        {isAdmin ? (
+          <WeekNavigation
+            previousWeekStart={data.previousWeekStart}
+            nextWeekStart={data.nextWeekStart}
+            disabled={isPending}
+            onNavigate={handleWeekChange}
+          />
+        ) : null}
         <div className="flex flex-wrap justify-end gap-3">
           <button
             type="button"

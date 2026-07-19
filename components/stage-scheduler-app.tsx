@@ -14,7 +14,10 @@ import { useRouter } from "next/navigation";
 import { clsx } from "clsx";
 import { toPng } from "html-to-image";
 
-import { BLOCKED_DIRECT_BOOKING_ID } from "@/lib/constants";
+import {
+  BLOCKED_DIRECT_BOOKING_ID,
+  COLLECTIVE_REHEARSAL_DIRECT_BOOKING_ID,
+} from "@/lib/constants";
 import { WeekNavigation } from "@/components/week-navigation";
 import {
   formatDatePtBr,
@@ -66,12 +69,16 @@ function formatWhatsappInput(value: string) {
 }
 
 function getReservationLabel(reservation: DashboardData["reservations"][number]) {
-  return reservation.isBlocked ? "Ocupado" : reservation.ministryName;
+  return reservation.isCollectiveRehearsal
+    ? reservation.ministryName
+    : reservation.isBlocked
+      ? "Ocupado"
+      : reservation.ministryName;
 }
 
 function getReservationStatusLabel(reservation: DashboardData["reservations"][number]) {
   if (reservation.isBlocked) {
-    return "Ocupado";
+    return reservation.isCollectiveRehearsal ? "Ensaio coletivo" : "Ocupado";
   }
 
   return reservation.status === "pending" ? "Pendente" : "Confirmado";
@@ -95,6 +102,7 @@ export function StageSchedulerApp({ data }: Props) {
   const [directBookingMinistryId, setDirectBookingMinistryId] = useState(
     data.ministries[0]?.id ?? "",
   );
+  const [directBookingTitle, setDirectBookingTitle] = useState("");
   const [manageReservationRequestId, setManageReservationRequestId] = useState<string | null>(
     null,
   );
@@ -211,6 +219,11 @@ function replaceMinistrySlot(slotKey: string) {
             mode === "admin" ? directBookingMinistryId : currentUser.ministryId,
           slotKeys: submissionSlotKeys,
           submissionMode: mode === "admin" ? "approved" : "pending",
+          reviewNote:
+            mode === "admin" &&
+            directBookingMinistryId === COLLECTIVE_REHEARSAL_DIRECT_BOOKING_ID
+              ? directBookingTitle
+              : "",
         });
         setDirectBookingSlotKey(null);
         setFeedback(
@@ -715,6 +728,9 @@ function replaceMinistrySlot(slotKey: string) {
               <span className="rounded-full border border-[var(--danger)] bg-[var(--danger-soft)] px-3 py-1 text-[var(--danger)]">
                 Ocupado
               </span>
+              <span className="rounded-full border border-[var(--collective)] bg-[var(--collective-soft)] px-3 py-1 text-[var(--collective)]">
+                Ensaio coletivo
+              </span>
             </div>
           </div>
           <SlotOverview
@@ -767,6 +783,9 @@ function replaceMinistrySlot(slotKey: string) {
                 </span>
                 <span className="rounded-full border border-[var(--danger)] bg-[var(--danger-soft)] px-3 py-1 text-[var(--danger)]">
                   Ocupado
+                </span>
+                <span className="rounded-full border border-[var(--collective)] bg-[var(--collective-soft)] px-3 py-1 text-[var(--collective)]">
+                  Ensaio coletivo
                 </span>
               </div>
             </div>
@@ -822,9 +841,11 @@ function replaceMinistrySlot(slotKey: string) {
           slotKey={directBookingSlotKey}
           ministries={data.ministries}
           selectedMinistryId={directBookingMinistryId}
+          publicTitle={directBookingTitle}
           isPending={isPending}
           onClose={() => setDirectBookingSlotKey(null)}
           onSelectMinistry={setDirectBookingMinistryId}
+          onPublicTitleChange={setDirectBookingTitle}
           onSave={() => handleCreateRequest("admin")}
         />
       ) : null}
@@ -1039,7 +1060,10 @@ function SlotPicker({
                     onClick={() => onToggle(slotKey)}
                     className={clsx(
                       "min-h-20 rounded-2xl border px-3 py-2 text-left text-sm transition",
+                      reservation?.isCollectiveRehearsal &&
+                        "border-[var(--collective)] bg-[var(--collective-soft)] text-[var(--collective)]",
                       reservation?.isBlocked &&
+                        !reservation.isCollectiveRehearsal &&
                         "border-[var(--danger)] bg-[var(--danger-soft)] text-[var(--danger)]",
                       reservation?.status === "pending" &&
                         !reservation?.isBlocked &&
@@ -1142,7 +1166,10 @@ function SlotOverview({
                   }}
                   className={clsx(
                     "min-h-20 rounded-2xl border px-3 py-2 text-left text-sm transition",
+                    reservation?.isCollectiveRehearsal &&
+                      "border-[var(--collective)] bg-[var(--collective-soft)] text-[var(--collective)]",
                     reservation?.isBlocked &&
+                      !reservation.isCollectiveRehearsal &&
                       "border-[var(--danger)] bg-[var(--danger-soft)] text-[var(--danger)]",
                     reservation?.status === "pending" &&
                       !reservation?.isBlocked &&
@@ -1247,7 +1274,10 @@ function ExportSlotOverview({
                   key={`export-${slotKey}`}
                   className={clsx(
                     "min-h-20 rounded-2xl border px-3 py-2 text-left text-sm",
+                    reservation?.isCollectiveRehearsal &&
+                      "border-[var(--collective)] bg-[var(--collective-soft)] text-[var(--collective)]",
                     reservation?.isBlocked &&
+                      !reservation.isCollectiveRehearsal &&
                       "border-[var(--danger)] bg-[var(--danger-soft)] text-[var(--danger)]",
                     reservation?.status === "pending" &&
                       !reservation?.isBlocked &&
@@ -1388,7 +1418,11 @@ function ManageReservationDialog({
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-[var(--ink-soft)]">
-              {request.isBlocked ? "Gerenciar bloqueio" : "Gerenciar agendamento"}
+              {request.isCollectiveRehearsal
+                ? "Gerenciar ensaio coletivo"
+                : request.isBlocked
+                  ? "Gerenciar bloqueio"
+                  : "Gerenciar agendamento"}
             </p>
             <h3 className="mt-2 font-display text-4xl text-[var(--ink)]">
               {request.ministryName}
@@ -1534,17 +1568,21 @@ function DirectBookingDialog({
   slotKey,
   ministries,
   selectedMinistryId,
+  publicTitle,
   isPending,
   onClose,
   onSelectMinistry,
+  onPublicTitleChange,
   onSave,
 }: {
   slotKey: string;
   ministries: DashboardData["ministries"];
   selectedMinistryId: string;
+  publicTitle: string;
   isPending: boolean;
   onClose: () => void;
   onSelectMinistry: (value: string) => void;
+  onPublicTitleChange: (value: string) => void;
   onSave: () => void;
 }) {
   return (
@@ -1559,7 +1597,7 @@ function DirectBookingDialog({
               {slotDateTimeLabel(slotKey.slice(0, 10), Number(slotKey.slice(11, 13)))}
             </h3>
             <p className="mt-2 text-sm text-[var(--ink-soft)]">
-              Escolha o ministério e confirme.
+              Escolha o tipo de ocupação e confirme.
             </p>
           </div>
           <button type="button" onClick={onClose} className="rounded-full border border-[var(--line)] px-4 py-2 text-sm font-semibold text-[var(--ink)]">
@@ -1568,12 +1606,15 @@ function DirectBookingDialog({
         </div>
 
         <div className="mt-6 grid gap-4">
-          <Field label="Ministério">
+          <Field label="Tipo ou ministério">
             <select
               value={selectedMinistryId}
               onChange={(event) => onSelectMinistry(event.target.value)}
               className="input-base"
             >
+              <option value={COLLECTIVE_REHEARSAL_DIRECT_BOOKING_ID}>
+                Ensaio coletivo
+              </option>
               <option value={BLOCKED_DIRECT_BOOKING_ID}>Bloquear horário</option>
               {ministries.map((ministry) => (
                 <option key={ministry.id} value={ministry.id}>
@@ -1582,27 +1623,63 @@ function DirectBookingDialog({
               ))}
             </select>
           </Field>
-          <div className="rounded-[1.25rem] border border-[var(--accent)] bg-[var(--accent-soft)] px-4 py-4">
+          {selectedMinistryId === COLLECTIVE_REHEARSAL_DIRECT_BOOKING_ID ? (
+            <Field label="Nome visível no calendário">
+              <input
+                type="text"
+                value={publicTitle}
+                maxLength={80}
+                onChange={(event) => onPublicTitleChange(event.target.value)}
+                placeholder="Ex.: Ensaio do Ato Final"
+                className="input-base"
+                autoFocus
+              />
+            </Field>
+          ) : null}
+          <div
+            className={clsx(
+              "rounded-[1.25rem] border px-4 py-4",
+              selectedMinistryId === COLLECTIVE_REHEARSAL_DIRECT_BOOKING_ID
+                ? "border-[var(--collective)] bg-[var(--collective-soft)]"
+                : "border-[var(--accent)] bg-[var(--accent-soft)]",
+            )}
+          >
             <p className="font-semibold text-[var(--ink)]">
-              {selectedMinistryId === BLOCKED_DIRECT_BOOKING_ID
-                ? "Horário ficará ocupado"
-                : "Agendamento direto confirmado"}
+              {selectedMinistryId === COLLECTIVE_REHEARSAL_DIRECT_BOOKING_ID
+                ? "Ensaio visível para todos"
+                : selectedMinistryId === BLOCKED_DIRECT_BOOKING_ID
+                  ? "Horário ficará ocupado"
+                  : "Agendamento direto confirmado"}
             </p>
             <p className="mt-1 text-sm text-[var(--ink-soft)]">
-              {selectedMinistryId === BLOCKED_DIRECT_BOOKING_ID
-                ? "Será salvo como bloqueio da coordenação."
-                : "Será salvo como confirmado."}
+              {selectedMinistryId === COLLECTIVE_REHEARSAL_DIRECT_BOOKING_ID
+                ? "Não entra no relatório e não consome limite de ministério."
+                : selectedMinistryId === BLOCKED_DIRECT_BOOKING_ID
+                  ? "Será salvo como bloqueio da coordenação."
+                  : "Será salvo como confirmado."}
             </p>
           </div>
         </div>
 
         <div className="mt-6 flex justify-end">
-          <button type="button" disabled={isPending || !selectedMinistryId} onClick={onSave} className="button-primary">
+          <button
+            type="button"
+            disabled={
+              isPending ||
+              !selectedMinistryId ||
+              (selectedMinistryId === COLLECTIVE_REHEARSAL_DIRECT_BOOKING_ID &&
+                publicTitle.trim().length < 3)
+            }
+            onClick={onSave}
+            className="button-primary"
+          >
             {isPending
               ? "Salvando..."
-              : selectedMinistryId === BLOCKED_DIRECT_BOOKING_ID
-                ? "Salvar bloqueio"
-                : "Salvar agendamento"}
+              : selectedMinistryId === COLLECTIVE_REHEARSAL_DIRECT_BOOKING_ID
+                ? "Salvar ensaio"
+                : selectedMinistryId === BLOCKED_DIRECT_BOOKING_ID
+                  ? "Salvar bloqueio"
+                  : "Salvar agendamento"}
           </button>
         </div>
       </div>

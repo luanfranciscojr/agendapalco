@@ -190,6 +190,9 @@ export function PublicPanelClient({ data }: Props) {
             <span className="rounded-full border border-[var(--danger)] bg-[var(--danger-soft)] px-3 py-1 text-[var(--danger)]">
               Ocupado
             </span>
+            <span className="rounded-full border border-[var(--collective)] bg-[var(--collective-soft)] px-3 py-1 text-[var(--collective)]">
+              Ensaio coletivo
+            </span>
           </div>
 
           <div className="mt-5 grid gap-3 overflow-x-auto">
@@ -220,7 +223,10 @@ export function PublicPanelClient({ data }: Props) {
                         key={slotKey}
                         className={clsx(
                           "min-h-20 rounded-2xl border px-3 py-2 text-left text-sm",
+                          reservation?.isCollectiveRehearsal &&
+                            "border-[var(--collective)] bg-[var(--collective-soft)] text-[var(--collective)]",
                           reservation?.isBlocked &&
+                            !reservation.isCollectiveRehearsal &&
                             "border-[var(--danger)] bg-[var(--danger-soft)] text-[var(--danger)]",
                           reservation?.status === "pending" &&
                             !reservation?.isBlocked &&
@@ -238,11 +244,17 @@ export function PublicPanelClient({ data }: Props) {
                         {reservation ? (
                           <>
                             <span className="block font-semibold">
-                              {reservation.isBlocked ? "Ocupado" : reservation.ministryName}
+                              {reservation.isCollectiveRehearsal
+                                ? reservation.ministryName
+                                : reservation.isBlocked
+                                  ? "Ocupado"
+                                  : reservation.ministryName}
                             </span>
                             <span className="mt-1 block text-[11px] tracking-[0.04em]">
                               {reservation.isBlocked
-                                ? "Ocupado"
+                                ? reservation.isCollectiveRehearsal
+                                  ? "Ensaio coletivo"
+                                  : "Ocupado"
                                 : reservation.status === "pending"
                                   ? "Pendente"
                                   : "Confirmado"}
@@ -291,6 +303,9 @@ export function PublicPanelClient({ data }: Props) {
                 <span className="rounded-full border border-[var(--danger)] bg-[var(--danger-soft)] px-3 py-1 text-[var(--danger)]">
                   Ocupado
                 </span>
+                <span className="rounded-full border border-[var(--collective)] bg-[var(--collective-soft)] px-3 py-1 text-[var(--collective)]">
+                  Ensaio coletivo
+                </span>
               </div>
             </div>
 
@@ -327,7 +342,10 @@ export function PublicPanelClient({ data }: Props) {
                           key={`export-${slotKey}`}
                           className={clsx(
                             "min-h-20 rounded-2xl border px-3 py-2 text-left text-sm",
+                            reservation?.isCollectiveRehearsal &&
+                              "border-[var(--collective)] bg-[var(--collective-soft)] text-[var(--collective)]",
                             reservation?.isBlocked &&
+                              !reservation.isCollectiveRehearsal &&
                               "border-[var(--danger)] bg-[var(--danger-soft)] text-[var(--danger)]",
                             reservation?.status === "pending" &&
                               !reservation?.isBlocked &&
@@ -345,11 +363,17 @@ export function PublicPanelClient({ data }: Props) {
                           {reservation ? (
                             <>
                               <span className="block text-sm font-semibold leading-5">
-                                {reservation.isBlocked ? "Ocupado" : reservation.ministryName}
+                                {reservation.isCollectiveRehearsal
+                                  ? reservation.ministryName
+                                  : reservation.isBlocked
+                                    ? "Ocupado"
+                                    : reservation.ministryName}
                               </span>
                               <span className="mt-1 block text-[11px] tracking-[0.04em] leading-4">
                                 {reservation.isBlocked
-                                  ? "Ocupado"
+                                  ? reservation.isCollectiveRehearsal
+                                    ? "Ensaio coletivo"
+                                    : "Ocupado"
                                   : reservation.status === "pending"
                                     ? "Pendente"
                                     : "Confirmado"}

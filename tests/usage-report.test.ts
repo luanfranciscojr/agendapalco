@@ -15,6 +15,7 @@ function request(
     requestedSlotKeys: ["2026-07-19T18:00"],
     reservedSlotKeys: ["2026-07-19T18:00"],
     isBlocked: false,
+    isCollectiveRehearsal: false,
     ...overrides,
   };
 }

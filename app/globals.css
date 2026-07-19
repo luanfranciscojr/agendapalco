@@ -20,6 +20,8 @@
   --warning-soft: #f8ead0;
   --danger: #a34a41;
   --danger-soft: #f4ddd9;
+  --collective: #405f9e;
+  --collective-soft: #e2e8f5;
 }
 
 @theme inline {

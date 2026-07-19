@@ -10,6 +10,7 @@ import {
   BLOCKED_DIRECT_BOOKING_ID,
   BLOCKED_MINISTRY_NAME,
   BLOCKED_PUBLIC_LABEL,
+  COLLECTIVE_REHEARSAL_DIRECT_BOOKING_ID,
   CONFIG_KEY_MAX_REQUESTS,
   DEFAULT_MAX_REQUESTS_PER_WEEK,
   MAX_FUTURE_WEEKS,
@@ -38,6 +39,10 @@ import { validateHour } from "@/lib/validators";
 import { parsePublicReviewToken } from "@/lib/public-review";
 import { sendWhatsAppTemplate } from "@/lib/whatsapp";
 import { buildUsageReport } from "@/lib/usage-report";
+import {
+  buildCollectiveRehearsalNote,
+  getCollectiveRehearsalTitle,
+} from "@/lib/blocking";
 
 export class AppError extends Error {
   constructor(
@@ -175,6 +180,9 @@ function mapRequest(request: Prisma.BookingRequestGetPayload<{
   };
 }>) {
   const isBlocked = isBlockedMinistryName(request.ministry.name);
+  const collectiveRehearsalTitle = isBlocked
+    ? getCollectiveRehearsalTitle(request.reviewNote)
+    : null;
   const normalizedStatus =
     request.reservedSlots.length === 0 &&
     request.reviewNote?.toLowerCase().includes("cancelado")
@@ -184,7 +192,9 @@ function mapRequest(request: Prisma.BookingRequestGetPayload<{
   return {
     id: request.id,
     ministryId: request.ministryId,
-    ministryName: isBlocked ? BLOCKED_PUBLIC_LABEL : request.ministry.name,
+    ministryName: isBlocked
+      ? collectiveRehearsalTitle ?? BLOCKED_PUBLIC_LABEL
+      : request.ministry.name,
     requestedByName: request.requestedByName,
     origin: request.origin,
     status: normalizedStatus,
@@ -197,6 +207,35 @@ function mapRequest(request: Prisma.BookingRequestGetPayload<{
       buildSlotKey(slot.slotDate.toISOString().slice(0, 10), slot.hour),
     ),
     isBlocked,
+    isCollectiveRehearsal: Boolean(collectiveRehearsalTitle),
+  };
+}
+
+function mapReservation(slot: Prisma.ReservedSlotGetPayload<{
+  include: {
+    bookingRequest: {
+      include: { ministry: true };
+    };
+  };
+}>) {
+  const isBlocked = isBlockedMinistryName(slot.bookingRequest.ministry.name);
+  const collectiveRehearsalTitle = isBlocked
+    ? getCollectiveRehearsalTitle(slot.bookingRequest.reviewNote)
+    : null;
+
+  return {
+    slotKey: buildSlotKey(slot.slotDate.toISOString().slice(0, 10), slot.hour),
+    dateKey: slot.slotDate.toISOString().slice(0, 10),
+    hour: slot.hour,
+    requestId: slot.bookingRequestId,
+    ministryId: slot.bookingRequest.ministryId,
+    ministryName: isBlocked
+      ? collectiveRehearsalTitle ?? BLOCKED_PUBLIC_LABEL
+      : slot.bookingRequest.ministry.name,
+    requestedByName: slot.bookingRequest.requestedByName,
+    status: slot.bookingRequest.status,
+    isBlocked,
+    isCollectiveRehearsal: Boolean(collectiveRehearsalTitle),
   };
 }
 
@@ -456,19 +495,7 @@ export async function getDashboardData(
         name: ministry.name,
       })),
     requests: requests.map(mapRequest),
-    reservations: reservedSlots.map((slot) => ({
-      slotKey: buildSlotKey(slot.slotDate.toISOString().slice(0, 10), slot.hour),
-      dateKey: slot.slotDate.toISOString().slice(0, 10),
-      hour: slot.hour,
-      requestId: slot.bookingRequestId,
-      ministryId: slot.bookingRequest.ministryId,
-      ministryName: isBlockedMinistryName(slot.bookingRequest.ministry.name)
-        ? BLOCKED_PUBLIC_LABEL
-        : slot.bookingRequest.ministry.name,
-      requestedByName: slot.bookingRequest.requestedByName,
-      status: slot.bookingRequest.status,
-      isBlocked: isBlockedMinistryName(slot.bookingRequest.ministry.name),
-    })),
+    reservations: reservedSlots.map(mapReservation),
   };
 }
 
@@ -502,19 +529,7 @@ export async function getPublicPanelData(
     nextWeekStart,
     unavailableSlotKeys: getUnavailableSlotKeys(days),
     slotHours: SLOT_HOURS,
-    reservations: reservedSlots.map((slot) => ({
-      slotKey: buildSlotKey(slot.slotDate.toISOString().slice(0, 10), slot.hour),
-      dateKey: slot.slotDate.toISOString().slice(0, 10),
-      hour: slot.hour,
-      requestId: slot.bookingRequestId,
-      ministryId: slot.bookingRequest.ministryId,
-      ministryName: isBlockedMinistryName(slot.bookingRequest.ministry.name)
-        ? BLOCKED_PUBLIC_LABEL
-        : slot.bookingRequest.ministry.name,
-      requestedByName: slot.bookingRequest.requestedByName,
-      status: slot.bookingRequest.status,
-      isBlocked: isBlockedMinistryName(slot.bookingRequest.ministry.name),
-    })),
+    reservations: reservedSlots.map(mapReservation),
   };
 }
 
@@ -579,13 +594,27 @@ function getCreatePayloadForUser(currentUser: AuthUser, input: CreateBookingInpu
     ministryId: input.ministryId,
     requesterName: currentUser.name,
     submissionMode: input.submissionMode,
-    isBlocked: input.ministryId === BLOCKED_DIRECT_BOOKING_ID,
+    isBlocked: [
+      BLOCKED_DIRECT_BOOKING_ID,
+      COLLECTIVE_REHEARSAL_DIRECT_BOOKING_ID,
+    ].includes(input.ministryId),
+    isCollectiveRehearsal:
+      input.ministryId === COLLECTIVE_REHEARSAL_DIRECT_BOOKING_ID,
   };
 }
 
 export async function createBookingRequest(currentUser: AuthUser, input: CreateBookingInput) {
   const payload = getCreatePayloadForUser(currentUser, input);
   const { weekStart, parsed } = getWeekDatesOrThrow(input.slotKeys);
+
+  if (
+    payload.role === "admin" &&
+    payload.isCollectiveRehearsal &&
+    ((input.reviewNote ?? "").trim().length < 3 ||
+      (input.reviewNote ?? "").trim().length > 80)
+  ) {
+    throw new AppError("Informe um nome de 3 a 80 caracteres para o ensaio.", 422);
+  }
 
   if (currentUser.role === "ministry" && !currentUser.whatsappPhone?.trim()) {
     throw new AppError(
@@ -666,7 +695,9 @@ export async function createBookingRequest(currentUser: AuthUser, input: CreateB
           reviewNote:
             payload.role === "admin"
               ? payload.isBlocked
-                ? "Horário bloqueado pela coordenação."
+                ? payload.isCollectiveRehearsal
+                  ? buildCollectiveRehearsalNote(input.reviewNote ?? "")
+                  : "Horário bloqueado pela coordenação."
                 : input.reviewNote || null
               : null,
           weekStart: dateKeyToUtcDate(weekStart),

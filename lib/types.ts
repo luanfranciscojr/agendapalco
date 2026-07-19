@@ -11,6 +11,7 @@ export type SlotReservation = {
   requestedByName: string;
   status: BookingStatus;
   isBlocked: boolean;
+  isCollectiveRehearsal: boolean;
 };
 
 export type DashboardRequest = {
@@ -25,6 +26,7 @@ export type DashboardRequest = {
   requestedSlotKeys: string[];
   reservedSlotKeys: string[];
   isBlocked: boolean;
+  isCollectiveRehearsal: boolean;
 };
 
 export type DashboardData = {

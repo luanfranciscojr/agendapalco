@@ -36,4 +36,4 @@ COPY --from=builder /app ./
 
 EXPOSE 3001
 
-CMD ["sh", "-c", "pnpm db:push && node_modules/.bin/next start -H 0.0.0.0 -p ${PORT:-3001}"]
+CMD ["sh", "-c", "pnpm db:push && pnpm db:seed && node_modules/.bin/next start -H 0.0.0.0 -p ${PORT:-3001}"]

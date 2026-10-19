@@ -79,6 +79,7 @@ pnpm dev
   - `acroarte / acroarte`
   - `apoio_tecnico / apoio_tecnico`
   - `bale / bale` (Balé)
+  - `coral / coral` (Coral)
 - Nenhum usuário recebe telefone padrão no seed
 - O usuário do ministério precisa cadastrar o próprio WhatsApp antes da primeira solicitação de agendamento
 

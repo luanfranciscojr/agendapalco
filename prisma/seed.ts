@@ -25,12 +25,13 @@ const ministrySeeds = [
   { name: "Alpha", username: "alpha" },
   { name: "Bravo", username: "bravo" },
   { name: "Charlie", username: "charlie" },
+  { name: "Coral", username: "coral" },
 ] as const;
 
 async function main() {
   await prisma.systemConfig.upsert({
     where: { key: "max_requests_per_ministry_per_week" },
-    update: { value: "1" },
+    update: {},
     create: {
       key: "max_requests_per_ministry_per_week",
       value: "1",
@@ -42,8 +43,6 @@ async function main() {
     update: {
       name: "Coordenação do Palco",
       username: "admin",
-      passwordHash: hashPassword("admin123"),
-      whatsappPhone: null,
       role: "admin",
       ministryId: null,
     },
@@ -90,8 +89,6 @@ async function main() {
       update: {
         name: `Líder ${ministrySeed.name}`,
         username: ministrySeed.username,
-        passwordHash: hashPassword(ministrySeed.username),
-        whatsappPhone: null,
         role: "ministry",
         ministryId: ministry.id,
       },

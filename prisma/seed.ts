@@ -26,6 +26,7 @@ const ministrySeeds = [
   { name: "Bravo", username: "bravo" },
   { name: "Charlie", username: "charlie" },
   { name: "Coral", username: "coral" },
+  { name: "CoralKids", username: "coralkids" },
 ] as const;
 
 async function main() {

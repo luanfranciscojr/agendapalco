@@ -32,6 +32,7 @@ export type DashboardRequest = {
 export type DashboardData = {
   currentUser: AuthUser;
   weekStart: string;
+  isWeekOpen: boolean;
   today: string;
   days: string[];
   previousWeekStart: string | null;
@@ -46,6 +47,7 @@ export type DashboardData = {
 
 export type PublicPanelData = {
   weekStart: string;
+  isWeekOpen: boolean;
   today: string;
   days: string[];
   previousWeekStart: string | null;

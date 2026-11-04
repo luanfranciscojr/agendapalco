@@ -142,6 +142,52 @@ async function getMaxRequestsPerWeek(db: PrismaClient | Prisma.TransactionClient
   return Number(config?.value ?? DEFAULT_MAX_REQUESTS_PER_WEEK);
 }
 
+function getWeekBookingConfigKey(weekStart: string) {
+  return `booking_week_open:${weekStart}`;
+}
+
+async function getWeekBookingStatus(weekStart: string) {
+  const config = await prisma.systemConfig.findUnique({
+    where: { key: getWeekBookingConfigKey(weekStart) },
+  });
+  return config?.value === "true";
+}
+
+async function assertWeekOpen(db: Prisma.TransactionClient, weekStart: string) {
+  // Hold the week's row lock until the booking commits, so closing the week
+  // cannot race with a ministry request that is already being accepted.
+  const rows = await db.$queryRaw<Array<{ value: string }>>`
+    SELECT value FROM SystemConfig
+    WHERE \`key\` = ${getWeekBookingConfigKey(weekStart)}
+    FOR UPDATE
+  `;
+  if (rows[0]?.value !== "true") {
+    throw new AppError(
+      "Esta semana está bloqueada para novos pedidos. Aguarde a liberação da coordenação.",
+      409,
+    );
+  }
+}
+
+export async function updateWeekBookingStatus(
+  currentUser: AuthUser,
+  weekStart: string,
+  isOpen: boolean,
+) {
+  if (currentUser.role !== "admin") {
+    throw new AppError("Apenas a coordenação pode liberar ou bloquear semanas.", 403);
+  }
+  getRequestedWeekOrThrow(weekStart);
+
+  const key = getWeekBookingConfigKey(weekStart);
+  await prisma.systemConfig.upsert({
+    where: { key },
+    update: { value: String(isOpen) },
+    create: { key, value: String(isOpen) },
+  });
+  return { weekStart, isOpen };
+}
+
 async function acquireWeeklyMinistryLock(
   db: Prisma.TransactionClient,
   ministryId: string,
@@ -433,7 +479,7 @@ export async function getDashboardData(
       AND br.reviewNote IS NOT NULL
       AND LOWER(br.reviewNote) LIKE '%cancelado%'
   `;
-  const [config, ministries, requests, reservedSlots] = await Promise.all([
+  const [config, ministries, requests, reservedSlots, isWeekOpen] = await Promise.all([
     prisma.systemConfig.findUnique({
       where: { key: CONFIG_KEY_MAX_REQUESTS },
     }),
@@ -474,11 +520,13 @@ export async function getDashboardData(
       },
       orderBy: [{ slotDate: "asc" }, { hour: "asc" }],
     }),
+    getWeekBookingStatus(weekStart),
   ]);
 
   return {
     currentUser,
     weekStart,
+    isWeekOpen,
     today,
     days,
     previousWeekStart,
@@ -504,25 +552,29 @@ export async function getPublicPanelData(
 ): Promise<PublicPanelData> {
   const { weekStart, today, days, previousWeekStart, nextWeekStart } =
     getRequestedWeekOrThrow(requestedWeekStart);
-  const reservedSlots = await prisma.reservedSlot.findMany({
-    where: {
-      slotDate: {
-        gte: dateKeyToUtcDate(days[0]),
-        lte: dateKeyToUtcDate(days[days.length - 1]),
-      },
-    },
-    include: {
-      bookingRequest: {
-        include: {
-          ministry: true,
+  const [reservedSlots, isWeekOpen] = await Promise.all([
+    prisma.reservedSlot.findMany({
+      where: {
+        slotDate: {
+          gte: dateKeyToUtcDate(days[0]),
+          lte: dateKeyToUtcDate(days[days.length - 1]),
         },
       },
-    },
-    orderBy: [{ slotDate: "asc" }, { hour: "asc" }],
-  });
+      include: {
+        bookingRequest: {
+          include: {
+            ministry: true,
+          },
+        },
+      },
+      orderBy: [{ slotDate: "asc" }, { hour: "asc" }],
+    }),
+    getWeekBookingStatus(weekStart),
+  ]);
 
   return {
     weekStart,
+    isWeekOpen,
     today,
     days,
     previousWeekStart,
@@ -627,17 +679,18 @@ export async function createBookingRequest(currentUser: AuthUser, input: CreateB
   let pendingAdminNotifications: PendingAdminNotification[] = [];
 
   const created = await prisma.$transaction(async (tx) => {
-    const maxRequestsPerWeek = await getMaxRequestsPerWeek(tx);
     let weeklyLockName: string | null = null;
 
     try {
       if (payload.role === "ministry") {
+        await assertWeekOpen(tx, weekStart);
         weeklyLockName = await acquireWeeklyMinistryLock(
           tx,
           payload.ministryId,
           weekStart,
         );
 
+        const maxRequestsPerWeek = await getMaxRequestsPerWeek(tx);
         const activeCount = await tx.bookingRequest.count({
           where: {
             ministryId: payload.ministryId,

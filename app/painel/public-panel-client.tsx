@@ -143,6 +143,9 @@ export function PublicPanelClient({ data }: Props) {
               Consulta pública
             </span>
           </div>
+          <p className="mt-4 text-sm font-semibold text-[var(--ink)]">
+            {data.isWeekOpen ? "Semana liberada para novos pedidos" : "Semana bloqueada para novos pedidos"}
+          </p>
         </section>
 
         <section className="rounded-[2rem] border border-[var(--line)] bg-white/80 p-5 shadow-[0_18px_50px_rgba(36,31,18,0.08)] backdrop-blur sm:p-6">
@@ -288,6 +291,9 @@ export function PublicPanelClient({ data }: Props) {
                 </p>
                 <p className="mt-2 font-display text-4xl text-[var(--ink)]">
                   Semana de {formatDateFullPtBr(data.weekStart)}
+                </p>
+                <p className="mt-2 text-sm text-[var(--ink)]">
+                  {data.isWeekOpen ? "Semana liberada para novos pedidos" : "Semana bloqueada para novos pedidos"}
                 </p>
               </div>
               <div className="flex gap-2 text-xs font-semibold uppercase tracking-[0.08em]">

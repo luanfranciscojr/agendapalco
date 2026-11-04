@@ -87,6 +87,8 @@ function getReservationStatusLabel(reservation: DashboardData["reservations"][nu
 export function StageSchedulerApp({ data }: Props) {
   const router = useRouter();
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [weekError, setWeekError] = useState<string | null>(null);
+  const [isUpdatingWeek, setIsUpdatingWeek] = useState(false);
   const [whatsAppPhone, setWhatsAppPhone] = useState(data.currentUser.whatsappPhone ?? "");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -171,17 +173,43 @@ export function StageSchedulerApp({ data }: Props) {
   const missingWhatsAppForBooking =
     !isAdmin && !currentUser.whatsappPhone?.trim();
 
-function replaceMinistrySlot(slotKey: string) {
-  setSelectedSlots((current) => (current[0] === slotKey ? [] : [slotKey]));
-}
+  function replaceMinistrySlot(slotKey: string) {
+    if (!data.isWeekOpen) return;
+    setSelectedSlots((current) => (current[0] === slotKey ? [] : [slotKey]));
+  }
 
   function handleWeekChange(weekStart: string) {
     setSelectedSlots([]);
     setFeedback(null);
+    setWeekError(null);
     setPendingDialogRequestId(null);
     setDirectBookingSlotKey(null);
     setManageReservationRequestId(null);
-    router.push(`/?semana=${weekStart}`);
+    startTransition(() => router.push(`/?semana=${weekStart}`));
+  }
+
+  function handleWeekStatusChange() {
+    startTransition(async () => {
+      setWeekError(null);
+      setIsUpdatingWeek(true);
+      try {
+        await sendJson(
+          `/api/weeks/${data.weekStart}`,
+          { isOpen: !data.isWeekOpen },
+          "PATCH",
+        );
+        setSelectedSlots([]);
+        router.refresh();
+      } catch (error) {
+        setWeekError(
+          error instanceof Error && !(error instanceof TypeError)
+            ? error.message
+            : "Não foi possível atualizar a semana. Tente novamente.",
+        );
+      } finally {
+        setIsUpdatingWeek(false);
+      }
+    });
   }
 
   async function buildWeekImageFile() {
@@ -204,6 +232,7 @@ function replaceMinistrySlot(slotKey: string) {
   }
 
   function handleCreateRequest(mode: "ministry" | "admin") {
+    if (mode === "ministry" && !data.isWeekOpen) return;
     startTransition(async () => {
       const submissionSlotKeys =
         mode === "admin" && directBookingSlotKey ? [directBookingSlotKey] : selectedSlots;
@@ -237,6 +266,7 @@ function replaceMinistrySlot(slotKey: string) {
           setSelectedSlots(submissionSlotKeys);
         }
         setFeedback(error instanceof Error ? error.message : "Falha ao criar agendamento.");
+        router.refresh();
       }
     });
   }
@@ -516,20 +546,61 @@ function replaceMinistrySlot(slotKey: string) {
         />
       ) : null}
 
+      <section
+        aria-labelledby="week-booking-title"
+        className="grid gap-4 rounded-[2rem] border border-[var(--line)] bg-white p-5 sm:p-6"
+      >
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h1 id="week-booking-title" className="text-xl font-semibold text-[var(--ink)] sm:text-2xl">
+              Semana de {formatDatePtBr(data.weekStart)} a {formatDatePtBr(data.days[6])}
+            </h1>
+            <p role="status" className="mt-2 text-sm font-semibold text-[var(--ink)]">
+              {data.isWeekOpen ? "Semana liberada" : "Semana bloqueada"}
+            </p>
+            <p id="week-booking-description" className="mt-1 text-sm leading-6 text-[var(--ink-soft)]">
+              {data.isWeekOpen
+                ? "Os ministérios podem enviar novos pedidos."
+                : "Novos pedidos aguardam a liberação da coordenação."}
+              {isAdmin ? " Agendamentos existentes são mantidos." : ""}
+            </p>
+          </div>
+          {isAdmin ? (
+            <button
+              type="button"
+              disabled={isPending}
+              aria-describedby="week-booking-description"
+              onClick={handleWeekStatusChange}
+              className={clsx(
+                "min-h-11 shrink-0 rounded-full border px-5 py-3 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--accent-strong)] disabled:cursor-wait",
+                data.isWeekOpen
+                  ? "border-[var(--line)] bg-white text-[var(--ink)] enabled:hover:bg-[var(--panel)]"
+                  : "border-[var(--accent-strong)] bg-[var(--accent-strong)] text-white enabled:hover:bg-[var(--ink)]",
+              )}
+            >
+              {isUpdatingWeek ? "Salvando..." : data.isWeekOpen ? "Bloquear semana" : "Liberar semana"}
+            </button>
+          ) : null}
+        </div>
+        {weekError ? (
+          <p role="alert" className="text-sm text-[var(--danger)]">{weekError}</p>
+        ) : null}
+        <WeekNavigation
+          previousWeekStart={data.previousWeekStart}
+          nextWeekStart={data.nextWeekStart}
+          disabled={isPending}
+          onNavigate={handleWeekChange}
+        />
+      </section>
+
       <div className={clsx("grid gap-6", isAdmin ? "lg:grid-cols-[0.95fr_1.05fr]" : "lg:grid-cols-[1.1fr_0.9fr]")}>
         {!isAdmin ? (
           <>
             <Panel
               eyebrow="Solicitar horário"
               title="Novo agendamento"
-              description="Escolha um horário livre."
+              description={data.isWeekOpen ? "Escolha um horário livre." : "Aguarde a liberação desta semana para escolher um horário."}
             >
-              <WeekNavigation
-                previousWeekStart={data.previousWeekStart}
-                nextWeekStart={data.nextWeekStart}
-                disabled={isPending}
-                onNavigate={handleWeekChange}
-              />
               <div className="rounded-[1.5rem] border border-[var(--line)] bg-[var(--panel)] p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
@@ -548,7 +619,7 @@ function replaceMinistrySlot(slotKey: string) {
                         : "bg-[var(--ok-soft)] text-[var(--ok)]",
                     )}
                   >
-                    {weeklyAttemptConsumed ? "Tentativa usada" : "Liberado"}
+                    {weeklyAttemptConsumed ? "Tentativa usada" : "Disponível"}
                   </span>
                 </div>
               </div>
@@ -608,13 +679,13 @@ function replaceMinistrySlot(slotKey: string) {
               ) : null}
 
               <SlotPicker
-                title={weeklyAttemptConsumed ? "Calendário da semana" : "Escolha o horário"}
+                title={weeklyAttemptConsumed || !data.isWeekOpen ? "Calendário da semana" : "Escolha o horário"}
                 days={data.days}
                 slotHours={data.slotHours}
                 reservationsBySlot={reservationsBySlot}
                 unavailableSlotKeys={unavailableSlotKeys}
                 selectedSlots={selectedSlots}
-                disabled={isPending || weeklyAttemptConsumed}
+                disabled={isPending || weeklyAttemptConsumed || !data.isWeekOpen}
                 onToggle={replaceMinistrySlot}
               />
 
@@ -629,6 +700,7 @@ function replaceMinistrySlot(slotKey: string) {
                   type="button"
                   disabled={
                     isPending ||
+                    !data.isWeekOpen ||
                     !selectedSlots.length ||
                     weeklyAttemptConsumed
                   }
@@ -687,14 +759,6 @@ function replaceMinistrySlot(slotKey: string) {
         eyebrow="Mapa semanal"
         title="Calendário"
       >
-        {isAdmin ? (
-          <WeekNavigation
-            previousWeekStart={data.previousWeekStart}
-            nextWeekStart={data.nextWeekStart}
-            disabled={isPending}
-            onNavigate={handleWeekChange}
-          />
-        ) : null}
         <div className="flex flex-wrap justify-end gap-3">
           <button
             type="button"
@@ -721,6 +785,9 @@ function replaceMinistrySlot(slotKey: string) {
               </p>
               <p className="mt-2 font-display text-3xl text-[var(--ink)]">
                 Semana de {formatDateFullPtBr(data.weekStart)}
+              </p>
+              <p className="mt-2 text-sm text-[var(--ink)]">
+                {data.isWeekOpen ? "Semana liberada para novos pedidos" : "Semana bloqueada para novos pedidos"}
               </p>
             </div>
             <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.08em]">
@@ -777,6 +844,9 @@ function replaceMinistrySlot(slotKey: string) {
                 </p>
                 <p className="mt-2 font-display text-4xl text-[var(--ink)]">
                   Semana de {formatDateFullPtBr(data.weekStart)}
+                </p>
+                <p className="mt-2 text-sm text-[var(--ink)]">
+                  {data.isWeekOpen ? "Semana liberada para novos pedidos" : "Semana bloqueada para novos pedidos"}
                 </p>
               </div>
               <div className="flex gap-2 text-xs font-semibold uppercase tracking-[0.08em]">

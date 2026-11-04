@@ -16,7 +16,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: prismaMock,
 }));
 
-import { AppError, updateOwnPassword } from "@/lib/service";
+import { updateOwnPassword } from "@/lib/service";
 
 describe("password change", () => {
   const currentUser: AuthUser = {
@@ -72,7 +72,7 @@ describe("password change", () => {
         currentPassword: "senha-errada",
         newPassword: "senha-nova",
       }),
-    ).rejects.toMatchObject<AppError>({
+    ).rejects.toMatchObject({
       message: "Senha atual incorreta.",
       status: 409,
     });
@@ -91,7 +91,7 @@ describe("password change", () => {
         currentPassword: "senha-antiga",
         newPassword: "senha-antiga",
       }),
-    ).rejects.toMatchObject<AppError>({
+    ).rejects.toMatchObject({
       message: "A nova senha deve ser diferente da senha atual.",
       status: 409,
     });

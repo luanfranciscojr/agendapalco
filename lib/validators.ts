@@ -26,6 +26,10 @@ export const updateConfigSchema = z.object({
     .max(10),
 });
 
+export const updateWeekBookingStatusSchema = z.object({
+  isOpen: z.boolean(),
+});
+
 export const updateProfileSchema = z.object({
   whatsappPhone: z
     .string()

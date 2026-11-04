@@ -24,7 +24,12 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     const { weekStart } = await context.params;
     const input = updateWeekBookingStatusSchema.parse(await request.json());
-    const updated = await updateWeekBookingStatus(currentUser, weekStart, input.isOpen);
+    const updated = await updateWeekBookingStatus(
+      currentUser,
+      weekStart,
+      input.isOpen,
+      input.clearManualBlocks,
+    );
     return NextResponse.json(updated);
   } catch (error) {
     if (error instanceof AppError) {

@@ -7,6 +7,7 @@ Aplicação `Next.js` para controlar a agenda semanal do palco da igreja com `My
 - A agenda permite consultar a semana atual e as próximas oito semanas.
 - Cada semana começa bloqueada para novos pedidos dos ministérios. A coordenação pode liberar ou bloquear a semana selecionada no calendário.
 - O bloqueio preserva os agendamentos existentes. A coordenação continua podendo agendar diretamente, aprovar e cancelar pedidos.
+- Ao liberar uma semana, a coordenação pode marcar **Remover também os bloqueios manuais** para limpar os horários “Ocupado” daquela semana. Agendamentos de ministérios e ensaios coletivos são preservados; os bloqueios removidos ficam no histórico como cancelados.
 - O ministério pode abrir `1` agendamento por semana por padrão.
 - O admin pode criar vários agendamentos para o mesmo ministério.
 - O horário bloqueia assim que o agendamento é criado.

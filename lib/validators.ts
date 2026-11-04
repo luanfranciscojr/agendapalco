@@ -28,6 +28,7 @@ export const updateConfigSchema = z.object({
 
 export const updateWeekBookingStatusSchema = z.object({
   isOpen: z.boolean(),
+  clearManualBlocks: z.boolean().optional().default(false),
 });
 
 export const updateProfileSchema = z.object({

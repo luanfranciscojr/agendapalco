@@ -11,6 +11,7 @@ import {
   BLOCKED_MINISTRY_NAME,
   BLOCKED_PUBLIC_LABEL,
   COLLECTIVE_REHEARSAL_DIRECT_BOOKING_ID,
+  COLLECTIVE_REHEARSAL_NOTE_PREFIX,
   CONFIG_KEY_MAX_REQUESTS,
   DEFAULT_MAX_REQUESTS_PER_WEEK,
   MAX_FUTURE_WEEKS,
@@ -173,19 +174,56 @@ export async function updateWeekBookingStatus(
   currentUser: AuthUser,
   weekStart: string,
   isOpen: boolean,
+  clearManualBlocks = false,
 ) {
   if (currentUser.role !== "admin") {
     throw new AppError("Apenas a coordenação pode liberar ou bloquear semanas.", 403);
   }
   getRequestedWeekOrThrow(weekStart);
+  if (clearManualBlocks && !isOpen) {
+    throw new AppError("Os bloqueios manuais só podem ser removidos ao liberar a semana.", 422);
+  }
 
   const key = getWeekBookingConfigKey(weekStart);
-  await prisma.systemConfig.upsert({
-    where: { key },
-    update: { value: String(isOpen) },
-    create: { key, value: String(isOpen) },
+  const removedManualSlots = await prisma.$transaction(async (tx) => {
+    await tx.systemConfig.upsert({
+      where: { key },
+      update: { value: String(isOpen) },
+      create: { key, value: String(isOpen) },
+    });
+
+    if (!clearManualBlocks) return 0;
+
+    const blocks = await tx.bookingRequest.findMany({
+      where: {
+        weekStart: dateKeyToUtcDate(weekStart),
+        ministry: { name: BLOCKED_MINISTRY_NAME },
+        origin: BookingOrigin.admin_created,
+        status: { notIn: [BookingStatus.cancelled, BookingStatus.rejected] },
+        reservedSlots: { some: {} },
+        OR: [
+          { reviewNote: null },
+          { NOT: { reviewNote: { startsWith: COLLECTIVE_REHEARSAL_NOTE_PREFIX } } },
+        ],
+      },
+      select: { id: true },
+    });
+    const ids = blocks.map((block) => block.id);
+    if (!ids.length) return 0;
+
+    const removed = await tx.reservedSlot.deleteMany({
+      where: { bookingRequestId: { in: ids } },
+    });
+    await tx.bookingRequest.updateMany({
+      where: { id: { in: ids } },
+      data: {
+        status: BookingStatus.cancelled,
+        reviewNote: "Bloqueio cancelado ao liberar a semana.",
+      },
+    });
+    return removed.count;
   });
-  return { weekStart, isOpen };
+  return { weekStart, isOpen, removedManualSlots };
 }
 
 async function acquireWeeklyMinistryLock(

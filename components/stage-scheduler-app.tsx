@@ -89,6 +89,7 @@ export function StageSchedulerApp({ data }: Props) {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [weekError, setWeekError] = useState<string | null>(null);
   const [isUpdatingWeek, setIsUpdatingWeek] = useState(false);
+  const [clearManualBlocks, setClearManualBlocks] = useState(false);
   const [whatsAppPhone, setWhatsAppPhone] = useState(data.currentUser.whatsappPhone ?? "");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -115,6 +116,9 @@ export function StageSchedulerApp({ data }: Props) {
 
   const currentUser = data.currentUser;
   const isAdmin = currentUser.role === "admin";
+  const manualBlockedSlotsCount = data.reservations.filter(
+    (reservation) => reservation.isBlocked && !reservation.isCollectiveRehearsal,
+  ).length;
 
   const reservationsBySlot = useMemo(
     () =>
@@ -182,6 +186,7 @@ export function StageSchedulerApp({ data }: Props) {
     setSelectedSlots([]);
     setFeedback(null);
     setWeekError(null);
+    setClearManualBlocks(false);
     setPendingDialogRequestId(null);
     setDirectBookingSlotKey(null);
     setManageReservationRequestId(null);
@@ -195,10 +200,14 @@ export function StageSchedulerApp({ data }: Props) {
       try {
         await sendJson(
           `/api/weeks/${data.weekStart}`,
-          { isOpen: !data.isWeekOpen },
+          {
+            isOpen: !data.isWeekOpen,
+            clearManualBlocks: !data.isWeekOpen && clearManualBlocks,
+          },
           "PATCH",
         );
         setSelectedSlots([]);
+        setClearManualBlocks(false);
         router.refresh();
       } catch (error) {
         setWeekError(
@@ -582,6 +591,29 @@ export function StageSchedulerApp({ data }: Props) {
             </button>
           ) : null}
         </div>
+        {isAdmin && !data.isWeekOpen && manualBlockedSlotsCount > 0 ? (
+          <label className="flex cursor-pointer items-start gap-3 rounded-2xl bg-[var(--panel)] p-4">
+            <input
+              type="checkbox"
+              checked={clearManualBlocks}
+              disabled={isPending}
+              onChange={(event) => setClearManualBlocks(event.target.checked)}
+              aria-describedby="manual-blocks-description"
+              className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--accent-strong)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--accent-strong)]"
+            />
+            <span>
+              <span className="block text-sm font-semibold text-[var(--ink)]">
+                Remover também os bloqueios manuais
+              </span>
+              <span id="manual-blocks-description" className="mt-1 block text-sm leading-6 text-[var(--ink-soft)]">
+                {manualBlockedSlotsCount === 1
+                  ? "1 horário marcado como Ocupado."
+                  : `${manualBlockedSlotsCount} horários marcados como Ocupado.`}
+                {" "}Agendamentos e ensaios coletivos serão mantidos.
+              </span>
+            </span>
+          </label>
+        ) : null}
         {weekError ? (
           <p role="alert" className="text-sm text-[var(--danger)]">{weekError}</p>
         ) : null}

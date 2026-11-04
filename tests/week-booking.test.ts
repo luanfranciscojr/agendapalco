@@ -9,8 +9,8 @@ const { db } = vi.hoisted(() => ({
     $queryRaw: vi.fn(),
     systemConfig: { findUnique: vi.fn(), upsert: vi.fn() },
     ministry: { findMany: vi.fn() },
-    bookingRequest: { findMany: vi.fn(), count: vi.fn(), create: vi.fn() },
-    reservedSlot: { findMany: vi.fn() },
+    bookingRequest: { findMany: vi.fn(), count: vi.fn(), create: vi.fn(), updateMany: vi.fn() },
+    reservedSlot: { findMany: vi.fn(), deleteMany: vi.fn() },
     user: { findMany: vi.fn() },
   },
 }));
@@ -58,6 +58,7 @@ beforeEach(() => {
   db.bookingRequest.findMany.mockResolvedValue([]);
   db.bookingRequest.count.mockResolvedValue(0);
   db.reservedSlot.findMany.mockResolvedValue([]);
+  db.reservedSlot.deleteMany.mockResolvedValue({ count: 0 });
   db.user.findMany.mockResolvedValue([]);
   db.bookingRequest.create.mockImplementation(async ({ data }) => ({
     ...data, id: "booking", createdAt: new Date(), ministry: { name: "CoralKids" },
@@ -91,6 +92,66 @@ describe("weekly booking access", () => {
     await expect(updateWeekBookingStatus(ministry, "2026-11-01", true))
       .rejects.toMatchObject({ status: 403 });
     expect(db.systemConfig.upsert).not.toHaveBeenCalled();
+  });
+
+  it("keeps manual blocks when releasing without the cleanup option", async () => {
+    await expect(updateWeekBookingStatus(admin, "2026-11-01", true))
+      .resolves.toMatchObject({ isOpen: true, removedManualSlots: 0 });
+    expect(db.bookingRequest.findMany).not.toHaveBeenCalled();
+    expect(db.reservedSlot.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("removes only manual blocks from the selected week and keeps their history", async () => {
+    db.bookingRequest.findMany.mockResolvedValue([{ id: "manual-1" }, { id: "manual-2" }]);
+    db.reservedSlot.deleteMany.mockResolvedValue({ count: 3 });
+
+    await expect(updateWeekBookingStatus(admin, "2026-11-01", true, true))
+      .resolves.toMatchObject({ isOpen: true, removedManualSlots: 3 });
+    expect(db.bookingRequest.findMany).toHaveBeenCalledWith({
+      where: {
+        weekStart: new Date("2026-11-01T00:00:00Z"),
+        ministry: { name: "__BLOQUEIO_PALCO__" },
+        origin: "admin_created",
+        status: { notIn: ["cancelled", "rejected"] },
+        reservedSlots: { some: {} },
+        OR: [
+          { reviewNote: null },
+          { NOT: { reviewNote: { startsWith: "Ensaio coletivo: " } } },
+        ],
+      },
+      select: { id: true },
+    });
+    expect(db.reservedSlot.deleteMany).toHaveBeenCalledWith({
+      where: { bookingRequestId: { in: ["manual-1", "manual-2"] } },
+    });
+    expect(db.bookingRequest.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["manual-1", "manual-2"] } },
+      data: {
+        status: "cancelled",
+        reviewNote: "Bloqueio cancelado ao liberar a semana.",
+      },
+    });
+  });
+
+  it("rejects cleanup while closing a week", async () => {
+    await expect(updateWeekBookingStatus(admin, "2026-11-01", false, true))
+      .rejects.toMatchObject({ status: 422 });
+    expect(db.systemConfig.upsert).not.toHaveBeenCalled();
+    expect(db.reservedSlot.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("allows cleanup to be repeated when there are no manual blocks left", async () => {
+    await expect(updateWeekBookingStatus(admin, "2026-11-01", true, true))
+      .resolves.toMatchObject({ removedManualSlots: 0 });
+    expect(db.reservedSlot.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("reports cleanup failures without marking blocks cancelled", async () => {
+    db.bookingRequest.findMany.mockResolvedValue([{ id: "manual-1" }]);
+    db.reservedSlot.deleteMany.mockRejectedValue(new Error("Database failure"));
+    await expect(updateWeekBookingStatus(admin, "2026-11-01", true, true))
+      .rejects.toThrow("Database failure");
+    expect(db.bookingRequest.updateMany).not.toHaveBeenCalled();
   });
 
   it.each(["invalid", "2026-11-02", "2026-10-25", "2027-01-03"])(

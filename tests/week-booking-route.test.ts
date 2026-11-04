@@ -44,8 +44,24 @@ describe("PATCH /api/weeks/[weekStart]", () => {
     update.mockResolvedValue({ weekStart: "2026-11-01", isOpen });
     const response = await patch({ isOpen });
     expect(response.status).toBe(200);
-    expect(update).toHaveBeenCalledWith(admin, "2026-11-01", isOpen);
+    expect(update).toHaveBeenCalledWith(admin, "2026-11-01", isOpen, false);
     await expect(response.json()).resolves.toEqual({ weekStart: "2026-11-01", isOpen });
+  });
+
+  it("passes the explicit cleanup option to the service", async () => {
+    const admin = { role: "admin" };
+    auth.mockResolvedValue(admin);
+    update.mockResolvedValue({ weekStart: "2026-11-01", isOpen: true, removedManualSlots: 3 });
+    const response = await patch({ isOpen: true, clearManualBlocks: true });
+    expect(response.status).toBe(200);
+    expect(update).toHaveBeenCalledWith(admin, "2026-11-01", true, true);
+    await expect(response.json()).resolves.toMatchObject({ removedManualSlots: 3 });
+  });
+
+  it("rejects a non-boolean cleanup option", async () => {
+    auth.mockResolvedValue({ role: "admin" });
+    expect((await patch({ isOpen: true, clearManualBlocks: "true" })).status).toBe(422);
+    expect(update).not.toHaveBeenCalled();
   });
 
   it("returns date validation and persistence errors", async () => {

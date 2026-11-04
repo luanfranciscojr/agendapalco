@@ -181,8 +181,8 @@ export function PublicPanelClient({ data }: Props) {
           ) : null}
 
           <div className="mt-5 flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.08em]">
-            <span className="rounded-full border border-[var(--line)] bg-white px-3 py-1 text-[var(--ink-soft)]">
-              Livre
+            <span className={clsx("rounded-full border px-3 py-1", data.isWeekOpen ? "border-[var(--line)] bg-white text-[var(--ink-soft)]" : "border-[var(--danger)] bg-[var(--danger-soft)] text-[var(--danger)]")}>
+              {data.isWeekOpen ? "Livre" : "Semana bloqueada"}
             </span>
             <span className="rounded-full border border-[var(--warning)] bg-[var(--warning-soft)] px-3 py-1 text-[var(--warning)]">
               Pendente
@@ -241,7 +241,9 @@ export function PublicPanelClient({ data }: Props) {
                           !reservation &&
                             (unavailable
                               ? "border-[var(--line)] bg-[var(--panel)] text-[var(--ink-soft)] opacity-65"
-                              : "border-[var(--line)] bg-white text-[var(--ink-soft)]"),
+                              : !data.isWeekOpen
+                                ? "border-[var(--danger)] bg-[var(--danger-soft)] text-[var(--danger)]"
+                                : "border-[var(--line)] bg-white text-[var(--ink-soft)]"),
                         )}
                       >
                         {reservation ? (
@@ -265,7 +267,7 @@ export function PublicPanelClient({ data }: Props) {
                           </>
                         ) : (
                           <span className="font-semibold">
-                            {unavailable ? "Encerrado" : "Livre"}
+                            {unavailable ? "Encerrado" : !data.isWeekOpen ? "Bloqueado" : "Livre"}
                           </span>
                         )}
                       </div>
@@ -297,8 +299,8 @@ export function PublicPanelClient({ data }: Props) {
                 </p>
               </div>
               <div className="flex gap-2 text-xs font-semibold uppercase tracking-[0.08em]">
-                <span className="rounded-full border border-[var(--line)] bg-white px-3 py-1 text-[var(--ink-soft)]">
-                  Livre
+                <span className={clsx("rounded-full border px-3 py-1", data.isWeekOpen ? "border-[var(--line)] bg-white text-[var(--ink-soft)]" : "border-[var(--danger)] bg-[var(--danger-soft)] text-[var(--danger)]")}>
+                  {data.isWeekOpen ? "Livre" : "Semana bloqueada"}
                 </span>
                 <span className="rounded-full border border-[var(--warning)] bg-[var(--warning-soft)] px-3 py-1 text-[var(--warning)]">
                   Pendente
@@ -363,7 +365,9 @@ export function PublicPanelClient({ data }: Props) {
                             !reservation &&
                               (unavailable
                                 ? "border-[var(--line)] bg-[var(--panel)] text-[var(--ink-soft)] opacity-65"
-                                : "border-[var(--line)] bg-white text-[var(--ink-soft)]"),
+                                : !data.isWeekOpen
+                                  ? "border-[var(--danger)] bg-[var(--danger-soft)] text-[var(--danger)]"
+                                  : "border-[var(--line)] bg-white text-[var(--ink-soft)]"),
                           )}
                         >
                           {reservation ? (
@@ -387,7 +391,7 @@ export function PublicPanelClient({ data }: Props) {
                             </>
                           ) : (
                             <span className="block text-sm font-semibold leading-5">
-                              {unavailable ? "Encerrado" : "Livre"}
+                              {unavailable ? "Encerrado" : !data.isWeekOpen ? "Bloqueado" : "Livre"}
                             </span>
                           )}
                         </div>

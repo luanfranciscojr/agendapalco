@@ -571,7 +571,11 @@ export function StageSchedulerApp({ data }: Props) {
               {data.isWeekOpen
                 ? "Os ministérios podem enviar novos pedidos."
                 : "Novos pedidos aguardam a liberação da coordenação."}
-              {isAdmin ? " Agendamentos existentes são mantidos." : ""}
+              {isAdmin
+                ? data.isWeekOpen
+                  ? " Agendamentos existentes são mantidos."
+                  : " A coordenação pode agendar diretamente. Agendamentos existentes são mantidos."
+                : ""}
             </p>
           </div>
           {isAdmin ? (
@@ -712,6 +716,7 @@ export function StageSchedulerApp({ data }: Props) {
 
               <SlotPicker
                 title={weeklyAttemptConsumed || !data.isWeekOpen ? "Calendário da semana" : "Escolha o horário"}
+                isWeekOpen={data.isWeekOpen}
                 days={data.days}
                 slotHours={data.slotHours}
                 reservationsBySlot={reservationsBySlot}
@@ -823,8 +828,8 @@ export function StageSchedulerApp({ data }: Props) {
               </p>
             </div>
             <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.08em]">
-              <span className="rounded-full border border-[var(--line)] bg-white px-3 py-1 text-[var(--ink-soft)]">
-                Livre
+              <span className={clsx("rounded-full border px-3 py-1", data.isWeekOpen ? "border-[var(--line)] bg-white text-[var(--ink-soft)]" : "border-[var(--danger)] bg-[var(--danger-soft)] text-[var(--danger)]")}>
+                {data.isWeekOpen ? "Livre" : "Semana bloqueada"}
               </span>
               <span className="rounded-full border border-[var(--warning)] bg-[var(--warning-soft)] px-3 py-1 text-[var(--warning)]">
                 Pendente
@@ -841,6 +846,7 @@ export function StageSchedulerApp({ data }: Props) {
             </div>
           </div>
           <SlotOverview
+            isWeekOpen={data.isWeekOpen}
             days={data.days}
             slotHours={data.slotHours}
             reservationsBySlot={reservationsBySlot}
@@ -882,8 +888,8 @@ export function StageSchedulerApp({ data }: Props) {
                 </p>
               </div>
               <div className="flex gap-2 text-xs font-semibold uppercase tracking-[0.08em]">
-                <span className="rounded-full border border-[var(--line)] bg-white px-3 py-1 text-[var(--ink-soft)]">
-                  Livre
+                <span className={clsx("rounded-full border px-3 py-1", data.isWeekOpen ? "border-[var(--line)] bg-white text-[var(--ink-soft)]" : "border-[var(--danger)] bg-[var(--danger-soft)] text-[var(--danger)]")}>
+                  {data.isWeekOpen ? "Livre" : "Semana bloqueada"}
                 </span>
                 <span className="rounded-full border border-[var(--warning)] bg-[var(--warning-soft)] px-3 py-1 text-[var(--warning)]">
                   Pendente
@@ -902,6 +908,7 @@ export function StageSchedulerApp({ data }: Props) {
 
             <div className="mt-6">
               <ExportSlotOverview
+                isWeekOpen={data.isWeekOpen}
                 days={data.days}
                 slotHours={data.slotHours}
                 reservationsBySlot={reservationsBySlot}
@@ -1109,6 +1116,7 @@ function PasswordDialog({
 
 function SlotPicker({
   title,
+  isWeekOpen,
   days,
   slotHours,
   reservationsBySlot,
@@ -1118,6 +1126,7 @@ function SlotPicker({
   onToggle,
 }: {
   title: string;
+  isWeekOpen: boolean;
   days: string[];
   slotHours: number[];
   reservationsBySlot: Map<string, DashboardData["reservations"][number]>;
@@ -1183,14 +1192,19 @@ function SlotPicker({
                         reservation.status !== "pending" &&
                         "border-[var(--ok)] bg-[var(--ok-soft)] text-[var(--ok)]",
                       !reservation &&
+                        isWeekOpen &&
                         !selected &&
                         "border-[var(--line)] bg-white hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]",
                       !reservation &&
+                        isWeekOpen &&
                         selected &&
                         "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--ink)]",
                       disabled &&
+                        isWeekOpen &&
                         !reservation &&
                         "cursor-not-allowed opacity-60 hover:border-[var(--line)] hover:bg-white",
+                      !reservation && !unavailable && !isWeekOpen &&
+                        "cursor-not-allowed border-[var(--danger)] bg-[var(--danger-soft)] text-[var(--danger)]",
                       unavailable &&
                         !reservation &&
                         "cursor-not-allowed border-[var(--line)] bg-[var(--panel)] text-[var(--ink-soft)] opacity-65",
@@ -1205,7 +1219,7 @@ function SlotPicker({
                       </>
                     ) : (
                       <span className="font-semibold">
-                        {unavailable ? "Encerrado" : selected ? "Selecionado" : "Livre"}
+                        {unavailable ? "Encerrado" : !isWeekOpen ? "Bloqueado" : selected ? "Selecionado" : "Livre"}
                       </span>
                     )}
                   </button>
@@ -1220,6 +1234,7 @@ function SlotPicker({
 }
 
 function SlotOverview({
+  isWeekOpen,
   days,
   slotHours,
   reservationsBySlot,
@@ -1228,6 +1243,7 @@ function SlotOverview({
   onEmptySlotClick,
   onReservedSlotClick,
 }: {
+  isWeekOpen: boolean;
   days: string[];
   slotHours: number[];
   reservationsBySlot: Map<string, DashboardData["reservations"][number]>;
@@ -1289,11 +1305,15 @@ function SlotOverview({
                       reservation.status !== "pending" &&
                       "border-[var(--ok)] bg-[var(--ok-soft)] text-[var(--ok)]",
                     !reservation &&
+                      isWeekOpen &&
                       isAdmin &&
                       "border-dashed border-[var(--accent)] bg-white text-[var(--accent)] hover:-translate-y-0.5 hover:bg-[var(--accent-soft)]",
                     !reservation &&
+                      isWeekOpen &&
                       !isAdmin &&
                       "border-[var(--line)] bg-white text-[var(--ink-soft)]",
+                    !reservation && !unavailable && !isWeekOpen &&
+                      "border-[var(--danger)] bg-[var(--danger-soft)] text-[var(--danger)]",
                     !reservation &&
                       unavailable &&
                       "cursor-not-allowed border-solid border-[var(--line)] bg-[var(--panel)] text-[var(--ink-soft)] opacity-65 hover:translate-y-0 hover:bg-[var(--panel)]",
@@ -1323,11 +1343,11 @@ function SlotOverview({
                   ) : (
                     <>
                       <span className="block text-sm font-semibold leading-5">
-                        {unavailable ? "Encerrado" : isAdmin ? "Agendar direto" : "Livre"}
+                        {unavailable ? "Encerrado" : !isWeekOpen ? "Bloqueado" : isAdmin ? "Agendar direto" : "Livre"}
                       </span>
                       {isAdmin && !unavailable ? (
                         <span className="mt-1 block text-[11px] leading-4 text-current/80">
-                          Toque para abrir
+                          {isWeekOpen ? "Toque para abrir" : "Agendar direto"}
                         </span>
                       ) : null}
                     </>
@@ -1343,11 +1363,13 @@ function SlotOverview({
 }
 
 function ExportSlotOverview({
+  isWeekOpen,
   days,
   slotHours,
   reservationsBySlot,
   unavailableSlotKeys,
 }: {
+  isWeekOpen: boolean;
   days: string[];
   slotHours: number[];
   reservationsBySlot: Map<string, DashboardData["reservations"][number]>;
@@ -1399,7 +1421,9 @@ function ExportSlotOverview({
                     !reservation &&
                       (unavailable
                         ? "border-[var(--line)] bg-[var(--panel)] text-[var(--ink-soft)] opacity-65"
-                        : "border-[var(--line)] bg-white text-[var(--ink-soft)]"),
+                        : !isWeekOpen
+                          ? "border-[var(--danger)] bg-[var(--danger-soft)] text-[var(--danger)]"
+                          : "border-[var(--line)] bg-white text-[var(--ink-soft)]"),
                   )}
                 >
                   {reservation ? (
@@ -1413,7 +1437,7 @@ function ExportSlotOverview({
                     </>
                   ) : (
                     <span className="block text-sm font-semibold leading-5">
-                      {unavailable ? "Encerrado" : "Livre"}
+                      {unavailable ? "Encerrado" : !isWeekOpen ? "Bloqueado" : "Livre"}
                     </span>
                   )}
                 </div>

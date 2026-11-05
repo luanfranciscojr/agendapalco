@@ -5,14 +5,15 @@ export function RehearsalSummary({ report }: { report: RehearsalReport }) {
   return (
     <section aria-labelledby="rehearsal-summary-title" className="min-w-0 rounded-[2rem] border border-[var(--line)] bg-white/80 p-5 sm:p-6">
       <h2 id="rehearsal-summary-title" className="text-xl font-semibold text-[var(--ink)]">
-        Ensaios por ministério
+        Total geral de ensaios
       </h2>
       <p className="mt-2 text-sm text-[var(--ink-soft)]">
         De {formatDateFullPtBr(report.startDate)} até {formatDateFullPtBr(report.endDate)}
       </p>
-      <div role="region" aria-label="Contagem de ensaios por ministério" aria-describedby="rehearsal-count-description" tabIndex={0} className="mt-4 max-h-72 overflow-auto focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--accent-strong)]">
+      <p className="mt-1 text-sm text-[var(--ink-soft)]">Inclui todas as semanas do período.</p>
+      <div role="region" aria-label="Total geral de ensaios por ministério" aria-describedby="rehearsal-count-description" tabIndex={0} className="mt-4 max-h-72 overflow-auto focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--accent-strong)]">
         <table className="w-full border-collapse text-sm">
-          <caption className="sr-only">Ensaios realizados por ministério no período</caption>
+          <caption className="sr-only">Total de ensaios realizados por ministério em todas as semanas do período</caption>
           <thead className="sticky top-0 bg-white text-[var(--ink-soft)]">
             <tr className="border-b border-[var(--line)]">
               <th scope="col" className="py-3 pr-4 text-left font-semibold">Ministério</th>
@@ -31,7 +32,7 @@ export function RehearsalSummary({ report }: { report: RehearsalReport }) {
           </tbody>
           <tfoot className="sticky bottom-0 bg-white">
             <tr className="border-t border-[var(--line)]">
-              <th scope="row" className="py-3 pr-4 text-left font-semibold text-[var(--ink)]">Total</th>
+              <th scope="row" className="py-3 pr-4 text-left font-semibold text-[var(--ink)]">Total geral</th>
               <td className="py-3 pl-4 text-right font-semibold tabular-nums text-[var(--accent-strong)]">{report.total}</td>
             </tr>
           </tfoot>

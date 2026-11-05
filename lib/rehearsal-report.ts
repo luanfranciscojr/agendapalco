@@ -19,7 +19,7 @@ export type RehearsalReport = {
 type RehearsalSlot = {
   slotDate: Date;
   hour: number;
-  bookingRequest: { ministryId: string; status: BookingStatus };
+  bookingRequest: { id: string; ministryId: string; status: BookingStatus };
 };
 
 export function buildRehearsalReport(
@@ -28,7 +28,7 @@ export function buildRehearsalReport(
   now = new Date(),
 ): RehearsalReport {
   const currentTime = getCurrentDateTimeKeyInTimeZone(now);
-  const daysByMinistry = new Map<string, Set<string>>();
+  const bookingsByMinistry = new Map<string, Set<string>>();
 
   for (const slot of slots) {
     const date = slot.slotDate.toISOString().slice(0, 10);
@@ -41,9 +41,9 @@ export function buildRehearsalReport(
     }
 
     const ministryId = slot.bookingRequest.ministryId;
-    const days = daysByMinistry.get(ministryId) ?? new Set<string>();
-    days.add(date);
-    daysByMinistry.set(ministryId, days);
+    const bookings = bookingsByMinistry.get(ministryId) ?? new Set<string>();
+    bookings.add(slot.bookingRequest.id);
+    bookingsByMinistry.set(ministryId, bookings);
   }
 
   const rows = ministries
@@ -51,7 +51,7 @@ export function buildRehearsalReport(
     .map((ministry) => ({
       ministryId: ministry.id,
       ministryName: ministry.name,
-      rehearsalCount: daysByMinistry.get(ministry.id)?.size ?? 0,
+      rehearsalCount: bookingsByMinistry.get(ministry.id)?.size ?? 0,
     }))
     .sort((a, b) => b.rehearsalCount - a.rehearsalCount || a.ministryName.localeCompare(b.ministryName, "pt-BR"));
 

@@ -11,8 +11,8 @@ const ministries = [
 type Slot = Parameters<typeof buildRehearsalReport>[1][number];
 const now = new Date("2026-11-05T23:00:00Z"); // 19:00 em Manaus.
 
-function slot(date: string, ministryId = "teatro", hour = 18, status: Slot["bookingRequest"]["status"] = "approved"): Slot {
-  return { slotDate: new Date(`${date}T00:00:00Z`), hour, bookingRequest: { ministryId, status } };
+function slot(date: string, ministryId = "teatro", hour = 18, status: Slot["bookingRequest"]["status"] = "approved", id = `${ministryId}-${date}-${hour}`): Slot {
+  return { slotDate: new Date(`${date}T00:00:00Z`), hour, bookingRequest: { id, ministryId, status } };
 }
 
 describe("completed rehearsal report", () => {
@@ -23,17 +23,27 @@ describe("completed rehearsal report", () => {
     expect(report.endDate).toBe("2026-11-05");
   });
 
-  it("counts one rehearsal per ministry and day even across multiple hours", () => {
+  it("counts separate bookings on the same day separately", () => {
     const report = buildRehearsalReport(ministries, [
       slot("2026-10-02"), slot("2026-10-02", "teatro", 19),
       slot("2026-10-03"), slot("2026-10-02", "bale", 20),
     ], now);
     expect(report.ministries).toEqual([
-      { ministryId: "teatro", ministryName: "Teatro", rehearsalCount: 2 },
+      { ministryId: "teatro", ministryName: "Teatro", rehearsalCount: 3 },
       { ministryId: "bale", ministryName: "Balé", rehearsalCount: 1 },
       { ministryId: "coralkids", ministryName: "CoralKids", rehearsalCount: 0 },
     ]);
-    expect(report.total).toBe(3);
+    expect(report.total).toBe(4);
+  });
+
+  it("counts a booking only once across multiple reserved hours and dates", () => {
+    const report = buildRehearsalReport(ministries, [
+      slot("2026-10-02", "teatro", 18, "approved", "same-booking"),
+      slot("2026-10-02", "teatro", 19, "approved", "same-booking"),
+      slot("2026-10-03", "teatro", 18, "approved", "same-booking"),
+    ], now);
+    expect(report.total).toBe(1);
+    expect(report.ministries.find((ministry) => ministry.ministryId === "teatro")?.rehearsalCount).toBe(1);
   });
 
   it("does not count pending, cancelled, rejected, or administrative and collective blocks", () => {

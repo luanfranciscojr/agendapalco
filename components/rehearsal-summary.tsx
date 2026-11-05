@@ -41,7 +41,7 @@ export function RehearsalSummary({ report }: { report: RehearsalReport }) {
         <p className="mt-2 text-sm text-[var(--ink-soft)]">Role a tabela para ver os {report.ministries.length} ministérios.</p>
       ) : null}
       <p id="rehearsal-count-description" className="mt-4 text-sm leading-6 text-[var(--ink-soft)]">
-        Conta um ensaio por dia para cada ministério, com ao menos um horário confirmado já encerrado.
+        Cada agendamento conta uma vez, com ao menos um horário confirmado já encerrado.
       </p>
     </section>
   );

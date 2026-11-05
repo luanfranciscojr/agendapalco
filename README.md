@@ -8,7 +8,7 @@ Aplicação `Next.js` para controlar a agenda semanal do palco da igreja com `My
 - Cada semana começa bloqueada para novos pedidos dos ministérios. A coordenação pode liberar ou bloquear a semana selecionada no calendário.
 - O bloqueio preserva os agendamentos existentes. A coordenação continua podendo agendar diretamente, aprovar e cancelar pedidos.
 - Ao liberar uma semana, a coordenação pode marcar **Remover também os bloqueios manuais** para limpar os horários “Ocupado” daquela semana. Agendamentos de ministérios e ensaios coletivos são preservados; os bloqueios removidos ficam no histórico como cancelados.
-- A tela administrativa mostra os ensaios por ministério desde 01/10/2026 até a data atual em Manaus, independentemente da semana selecionada. Conta um ensaio por dia para cada ministério quando houver ao menos um horário confirmado já encerrado. Horários futuros, pedidos pendentes, cancelamentos, bloqueios e ensaios coletivos não entram na contagem; ministérios sem ensaios aparecem com zero.
+- A tela administrativa mostra os ensaios por ministério desde 01/10/2026 até a data atual em Manaus, independentemente da semana selecionada. Cada agendamento conta uma vez quando houver ao menos um horário confirmado já encerrado no período. Agendamentos diferentes no mesmo dia contam separadamente; vários horários do mesmo agendamento contam apenas uma vez. Horários futuros, pedidos pendentes, cancelamentos, bloqueios e ensaios coletivos não entram na contagem; ministérios sem ensaios aparecem com zero.
 - O ministério pode abrir `1` agendamento por semana por padrão.
 - O admin pode criar vários agendamentos para o mesmo ministério.
 - O horário bloqueia assim que o agendamento é criado.

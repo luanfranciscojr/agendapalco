@@ -580,7 +580,7 @@ export async function getDashboardData(
           select: {
             slotDate: true,
             hour: true,
-            bookingRequest: { select: { ministryId: true, status: true } },
+            bookingRequest: { select: { id: true, ministryId: true, status: true } },
           },
         })
       : null,

@@ -99,7 +99,7 @@ export function getSelectableWeekContext(
   };
 }
 
-function getCurrentDateTimeKeyInTimeZone(now = new Date()) {
+export function getCurrentDateTimeKeyInTimeZone(now = new Date()) {
   const formatter = new Intl.DateTimeFormat("en-CA", {
     timeZone: APP_TIME_ZONE,
     year: "numeric",

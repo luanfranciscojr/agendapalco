@@ -19,6 +19,7 @@ import {
   COLLECTIVE_REHEARSAL_DIRECT_BOOKING_ID,
 } from "@/lib/constants";
 import { WeekNavigation } from "@/components/week-navigation";
+import { RehearsalSummary } from "@/components/rehearsal-summary";
 import {
   formatDatePtBr,
   formatDateFullPtBr,
@@ -629,7 +630,7 @@ export function StageSchedulerApp({ data }: Props) {
         />
       </section>
 
-      <div className={clsx("grid gap-6", isAdmin ? "lg:grid-cols-[0.95fr_1.05fr]" : "lg:grid-cols-[1.1fr_0.9fr]")}>
+      <div className={clsx("grid gap-6", isAdmin ? "items-start lg:grid-cols-[0.95fr_1.05fr]" : "lg:grid-cols-[1.1fr_0.9fr]")}>
         {!isAdmin ? (
           <>
             <Panel
@@ -788,6 +789,7 @@ export function StageSchedulerApp({ data }: Props) {
                 </button>
               </div>
             </Panel>
+            {data.rehearsalReport ? <RehearsalSummary report={data.rehearsalReport} /> : null}
           </>
         )}
       </div>

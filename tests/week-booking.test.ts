@@ -70,6 +70,11 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe("weekly booking access", () => {
+  it("includes rehearsal totals only in the admin dashboard", async () => {
+    expect((await getDashboardData(admin)).rehearsalReport).toMatchObject({ startDate: "2026-10-01", total: 0 });
+    expect((await getDashboardData(ministry)).rehearsalReport).toBeNull();
+  });
+
   it("starts closed on both dashboards and the public panel", async () => {
     expect((await getDashboardData(ministry)).isWeekOpen).toBe(false);
     expect((await getDashboardData(admin)).isWeekOpen).toBe(false);

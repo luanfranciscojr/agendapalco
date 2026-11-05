@@ -1,5 +1,6 @@
 import type { BookingOrigin, BookingStatus } from "@prisma/client";
 import type { AuthUser } from "@/lib/auth";
+import type { RehearsalReport } from "@/lib/rehearsal-report";
 
 export type SlotReservation = {
   slotKey: string;
@@ -41,6 +42,7 @@ export type DashboardData = {
   slotHours: number[];
   maxRequestsPerMinistryPerWeek: number;
   ministries: { id: string; name: string }[];
+  rehearsalReport: RehearsalReport | null;
   reservations: SlotReservation[];
   requests: DashboardRequest[];
 };

@@ -30,6 +30,7 @@ import {
 import {
   buildSlotKey,
   dateKeyToUtcDate,
+  getCurrentDateTimeKeyInTimeZone,
   getSelectableWeekContext,
   getWeekStartForDateKey,
   isSlotInPast,
@@ -40,6 +41,7 @@ import { validateHour } from "@/lib/validators";
 import { parsePublicReviewToken } from "@/lib/public-review";
 import { sendWhatsAppTemplate } from "@/lib/whatsapp";
 import { buildUsageReport } from "@/lib/usage-report";
+import { buildRehearsalReport, REHEARSAL_REPORT_START_DATE } from "@/lib/rehearsal-report";
 import {
   buildCollectiveRehearsalNote,
   getCollectiveRehearsalTitle,
@@ -506,6 +508,9 @@ export async function getDashboardData(
   currentUser: AuthUser,
   requestedWeekStart?: string,
 ): Promise<DashboardData> {
+  const now = new Date();
+  const currentTime = getCurrentDateTimeKeyInTimeZone(now);
+  const reportToday = dateKeyToUtcDate(currentTime.slice(0, 10));
   const { weekStart, today, days, previousWeekStart, nextWeekStart } =
     getRequestedWeekOrThrow(requestedWeekStart);
   await prisma.$executeRaw`
@@ -517,7 +522,7 @@ export async function getDashboardData(
       AND br.reviewNote IS NOT NULL
       AND LOWER(br.reviewNote) LIKE '%cancelado%'
   `;
-  const [config, ministries, requests, reservedSlots, isWeekOpen] = await Promise.all([
+  const [config, ministries, requests, reservedSlots, isWeekOpen, rehearsalSlots] = await Promise.all([
     prisma.systemConfig.findUnique({
       where: { key: CONFIG_KEY_MAX_REQUESTS },
     }),
@@ -559,6 +564,26 @@ export async function getDashboardData(
       orderBy: [{ slotDate: "asc" }, { hour: "asc" }],
     }),
     getWeekBookingStatus(weekStart),
+    currentUser.role === "admin"
+      ? prisma.reservedSlot.findMany({
+          where: {
+            slotDate: { gte: dateKeyToUtcDate(REHEARSAL_REPORT_START_DATE) },
+            OR: [
+              { slotDate: { lt: reportToday } },
+              { slotDate: reportToday, hour: { lt: Number(currentTime.slice(11, 13)) } },
+            ],
+            bookingRequest: {
+              status: BookingStatus.approved,
+              ministry: { name: { not: BLOCKED_MINISTRY_NAME } },
+            },
+          },
+          select: {
+            slotDate: true,
+            hour: true,
+            bookingRequest: { select: { ministryId: true, status: true } },
+          },
+        })
+      : null,
   ]);
 
   return {
@@ -582,6 +607,7 @@ export async function getDashboardData(
       })),
     requests: requests.map(mapRequest),
     reservations: reservedSlots.map(mapReservation),
+    rehearsalReport: rehearsalSlots ? buildRehearsalReport(ministries, rehearsalSlots, now) : null,
   };
 }
 

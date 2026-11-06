@@ -22,6 +22,7 @@ const ministrySeeds = [
   { name: "Banda NJ", username: "banda_nj" },
   { name: "Banda", username: "banda" },
   { name: "Dança 2", username: "danca_2" },
+  { name: "Dança 3", username: "danca_3" },
   { name: "Alpha", username: "alpha" },
   { name: "Bravo", username: "bravo" },
   { name: "Charlie", username: "charlie" },

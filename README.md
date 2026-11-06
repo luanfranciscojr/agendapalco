@@ -83,6 +83,7 @@ pnpm dev
   - `acroarte / acroarte`
   - `apoio_tecnico / apoio_tecnico`
   - `bale / bale` (Balé)
+  - `danca_3 / danca_3` (Dança 3)
   - `coral / coral` (Coral)
   - `coralkids / coralkids` (CoralKids)
 - Nenhum usuário recebe telefone padrão no seed
